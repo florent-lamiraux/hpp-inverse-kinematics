@@ -261,7 +261,7 @@ ImplicitPtr_t createGrasp(const GripperPtr_t& gripper, const HandleConstPtr_t& h
 }
 /// Create a trivial constraint
 ImplicitPtr_t createGraspComplement(const GripperPtr_t& gripper, const HandleConstPtr_t& handle,
-				    size_type, std::string n)
+				    std::string n)
 {
   if (n.empty()) {
     n = gripper->name() + "_grasps_" + handle->name() + "/complement_" + "_(empty)";

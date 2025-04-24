@@ -69,7 +69,7 @@ include("${JRL_CMAKE_MODULES}/hpp.cmake")
 include("${JRL_CMAKE_MODULES}/idl.cmake")
 include("${JRL_CMAKE_MODULES}/python.cmake")
 
-option(CORBA "Implement CORBA server and client" OFF)
+option(CORBA "Implement CORBA server and client" ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake-modules/ ${CMAKE_MODULE_PATH})
 

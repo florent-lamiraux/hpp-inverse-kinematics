@@ -1,0 +1,73 @@
+// Copyright (c) 2025 CNRS
+// Author: Florent Lamiraux
+//
+
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+// DAMAGE.
+
+#ifndef HPP_INVERSE_KINEMATICS_CORBA_INVERSE_KINEMATICS_STAUBLI_TX2_IDL
+#define HPP_INVERSE_KINEMATICS_CORBA_INVERSE_KINEMATICS_STAUBLI_TX2_IDL
+
+#include <hpp/common.idl>
+
+module hpp {
+  module corbaserver {
+    module inverse_kinematics {
+      interface StaubliTx2 {
+        /// Create grasp constraints between robot gripper and object handle
+	///
+	/// Creates two contraints between a handle and a gripper.
+	/// \li The first constraint named "${graspName}" is an exact inverse kinematics explicit
+	///     constraint,
+	/// \li the second constraint named "${graspName}/complement" is an constraint with output
+	///     of dimension 0 (void constraint)
+	/// 
+	/// \param graspName prefix of the constraint names for storing in
+	///        ProblemSolver map,
+	/// \param gripperName name of the gripper used when it has been created
+	/// \param handleName name of the handle in the form "object/handle"
+	/// \param baseLinkName Name of the robot arm base link (origin of the root frame),
+	/// \param extraDof extra degree of freedom used to decide between different solutions
+	///        of the exact inverse kinematics solution.
+	void createGrasp (in string graspName, in string gripperName,
+			  in string handleName, in string baseLinkName, in long extraDof)
+	  raises (Error);
+	///Create pre-grasp constraints between robot gripper and object handle
+	///
+	/// Creates a pregrasp constraint named "${name}"
+	///
+	/// \param pregraspName name of the constraint
+	/// \param gripperName name of the gripper used when it has been created
+	/// \param handleName name of the handle in the form "object/handle"
+	/// \param baseLinkName Name of the robot arm base link (origin of the root frame),
+	/// \param extraDof extra degree of freedom used to decide between different solutions
+	///        of the exact inverse kinematics solution.
+	void createPreGrasp (in string pregraspName, in string gripperName,
+            in string handleName, in string baseLinkName, in long extraDof) raises (Error);
+      }; // interface StaubliTx2
+    }; // module inverse_kinematics
+  }; // module corbaserver
+}; // module hpp
+    
+#endif // HPP_BIN_PICKING_CORBA_BIN_PICKING_HH
