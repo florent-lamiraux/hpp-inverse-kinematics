@@ -1,0 +1,170 @@
+//
+// Copyright (c) 2025 CNRS
+// Authors: Florent Lamiraux
+//
+
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+// DAMAGE.
+
+#define BOOST_TEST_MODULE staubli_tx2
+#include <boost/test/included/unit_test.hpp>
+
+#include <pinocchio/multibody/model.hpp>
+
+#include <hpp/constraints/implicit.hh>
+#include <hpp/constraints/solver/by-substitution.hh>
+
+#include <hpp/core/configuration-shooter/gaussian.hh>
+
+#include <hpp/manipulation/device.hh>
+#include <hpp/manipulation/handle.hh>
+
+#include <hpp/pinocchio/gripper.hh>
+#include <hpp/pinocchio/joint.hh>
+#include <hpp/pinocchio/urdf/util.hh>
+
+#include <hpp/inverse-kinematics/staubli-tx2.hh>
+
+using hpp::constraints::solver::BySubstitution;
+using hpp::constraints::Explicit;
+using hpp::constraints::ExplicitPtr_t;
+using hpp::constraints::ImplicitPtr_t;
+using hpp::constraints::Quaternion_t;
+
+typedef hpp::core::configurationShooter::GaussianPtr_t GaussianShooterPtr_t;
+typedef hpp::core::configurationShooter::Gaussian GaussianShooter;
+
+using hpp::inverseKinematics::createGrasp;
+
+using hpp::manipulation::Device;
+using hpp::manipulation::DevicePtr_t;
+using hpp::manipulation::Handle;
+using hpp::manipulation::HandlePtr_t;
+
+using hpp::pinocchio::FrameIndex;
+using hpp::pinocchio::Gripper;
+using hpp::pinocchio::GripperPtr_t;
+using hpp::pinocchio::Joint;
+using hpp::pinocchio::JointIndex;
+using hpp::pinocchio::JointPtr_t;
+using hpp::pinocchio::size_type;
+using hpp::pinocchio::Transform3s;
+using hpp::pinocchio::value_type;
+using hpp::pinocchio::vector_t;
+using hpp::pinocchio::vector3_t;
+using hpp::pinocchio::vector4_t;
+
+BOOST_AUTO_TEST_CASE(exact_inverse_kinematics) {
+  std::string partBaselink("part/base_link");
+  std::string handleName("part/part_top");
+  std::string gripperName("staubli/tooltip");
+  std::string robotEndEffector("staubli/flange");
+  std::string urdfFilename("@CMAKE_CURRENT_SOURCE_DIR@/urdf/staubli_tx2_90.urdf");
+  std::string srdfFilename("");
+  DevicePtr_t robot(Device::create("staubli-part"));
+  std::string frameName("universe");
+  value_type clearance(0.1);
+  pinocchio::FrameIndex frame = robot->model().getFrameId("universe");
+  // Load Staubli robot with a freeflyer joint
+  hpp::pinocchio::urdf::loadModel(robot, frame, "staubli", "freeflyer", urdfFilename,
+				  srdfFilename);
+  // Add a freeflyer joint to fix a handle
+  urdfFilename = "@CMAKE_CURRENT_SOURCE_DIR@/urdf/part.urdf";
+  hpp::pinocchio::urdf::loadModel(robot, frame, "part", "freeflyer", urdfFilename,
+				  srdfFilename);
+  // Add a handle on the part
+  JointPtr_t joint(robot->getJointByBodyName(partBaselink));
+  assert(joint);
+  JointIndex index(joint->index());
+  std::string jointName(joint->name());
+  ::pinocchio::Frame linkFrame =
+    robot->model().frames[robot->model().getFrameId(partBaselink)];
+  assert(linkFrame.type == ::pinocchio::BODY);
+  vector4_t v;
+  v << 0, 0.7071067811865476, 0, 0.7071067811865476;
+  Quaternion_t quat(v);
+  vector3_t trans;
+  trans << 0, 0, .5;
+  Transform3s poseInLink(quat, trans);
+
+  HandlePtr_t handle = Handle::create(handleName, linkFrame.placement * poseInLink, robot, joint);
+  handle->clearance(clearance);
+  handle->mask({true, true, true, true, true, true});
+  robot->handles.add(handleName, handle);
+  assert(robot->model().existFrame(jointName));
+  FrameIndex previousFrame(robot->model().getFrameId(jointName));
+  robot->model().addFrame(::pinocchio::Frame(handleName, index, previousFrame,
+					     linkFrame.placement * poseInLink,
+					     ::pinocchio::OP_FRAME));
+  // Add a gripper on the robot en-effector
+  joint = robot->getJointByBodyName(robotEndEffector);
+  assert(joint);
+  index = joint->index();
+  jointName = joint->name();
+  linkFrame = robot->model().frames[robot->model().getFrameId(robotEndEffector)];
+  assert(linkFrame.type == ::pinocchio::BODY);
+  v << 0, 0.7071067811865476, 0, 0.7071067811865476;
+  quat = Quaternion_t(v);
+  trans << 0.08, 0, -0.18;
+  poseInLink = Transform3s(quat, trans);
+  previousFrame = robot->model().getFrameId(jointName);
+  robot->model().addFrame(::pinocchio::Frame(gripperName, index, previousFrame,
+      linkFrame.placement * poseInLink, ::pinocchio::OP_FRAME));
+  GripperPtr_t gripper = Gripper::create(gripperName, robot);
+  gripper->clearance(clearance);
+  robot->grippers.add(gripperName, gripper);
+  // Add extra degree of freedom for exact inverse kinematics
+  size_type extraDof(robot->configSize());
+  robot->setDimensionExtraConfigSpace(1);
+  // create pinocchio data after building the model
+  robot->createData();
+
+  // Create exact inverse kinematics constraint
+  ImplicitPtr_t ik(createGrasp(gripper, handle, extraDof, "staubli/base_link", "ik"));
+  // Dynamic cast as explicit constraint for later.
+  ExplicitPtr_t explIk(HPP_DYNAMIC_PTR_CAST(Explicit, ik));
+  BOOST_CHECK(explIk);
+  // Create Gaussian configuration shooter
+  // Copy robot into a shared ptr of type pinocchio::Device otherwise the creation of the Gaussian
+  // shooter fails since the shooter stores a const reference to a pinocchio::DevicePtr_t.
+  hpp::pinocchio::DevicePtr_t robot2(robot);
+  GaussianShooterPtr_t shooter(GaussianShooter::create(robot2));
+  assert(shooter);
+  vector_t sigma(robot->numberDof());
+  sigma.fill(1.);
+  sigma.segment(6, 6).fill(0.);
+  sigma.tail(1).fill(0.);
+  shooter->sigmas(sigma);
+
+  // Create solver with exact inverse kinematics constraint
+  BySubstitution solver(robot->configSpace());
+  solver.add(ik);
+  BOOST_CHECK(solver.explicitConstraintSet().contains(explIk));
+
+  std::cout << "Solver:" << std::endl << solver << std::endl;
+  // Shoot random poses of part and robot base, compute exact inverse kinematics and on success,
+  // Check that constraint error of implicit formulation is small.
+  for(size_type i=0; i<1000; ++i) {
+  }
+}
