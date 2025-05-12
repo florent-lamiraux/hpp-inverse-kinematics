@@ -67,12 +67,15 @@ protected:
   }
   virtual void impl_compute(LiegroupElementRef result, vectorIn_t argument) const {
     forwardKinematics(argument);
-    // get the pose of the robot base link
+    // pose of the robot base link
     Transform3s rootPose(data_.oMf[baseLinkIdx_]);
-    // get the pose of the handle
-    Transform3s lastJointPose(data_.oMi[joint2_->index()] * frame2_);
+    // pose of joint1: J2 * F2 * F1^{-1}
+    Transform3s joint1Pose(data_.oMi[joint2_->index()] * frame2_ * frame1_.inverse());
+    // pose of last joint in robot arm base_link
+    Transform3s Minput(rootPose.inverse() * joint1Pose);
     hppDout(info, "rootPose=" << rootPose);
-    hppDout(info, "lastJointPose=" << lastJointPose);
+    hppDout(info, "joint1Pose=" << handlePose);
+    hppDout(info, "Minput=" << Minput);
     // Compute inverse kinematics here
 
     result.vector().setZero();
