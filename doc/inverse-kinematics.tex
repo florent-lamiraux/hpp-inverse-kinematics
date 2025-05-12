@@ -1,0 +1,117 @@
+\documentclass{article}
+
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{amsmath}
+
+\newcommand\linvel{\mathbf{v}}
+\newcommand\trans{\mathbf{t}}
+\newcommand\conf{\mathbf{q}}
+\newcommand\reals{\mathbb{R}}
+
+\title{Computation of the exact inverse kinematics solution of a 6D robotic arm}
+\author{Florent Lamiraux - CNRS}
+
+\begin{document}
+\maketitle
+
+\begin{figure}
+  \begin{center}
+    \def\svgwidth {.6\linewidth}
+    \graphicspath{{./figures/}}
+    \input{figures/kinematic-chain.pdf_tex}
+  \end{center}
+  \caption{Input (blue) and output (red) variables of the explicit constraint that computes the robot arm configuration with respect to the handle pose.}
+  \label{fig:kinematic-chain}
+\end{figure}
+
+\section{Introduction}
+
+This document explains how to implement exact inverse kinematics of a Stäubli robotic arm as an
+explicit constraint in Humanoid Path Planner software. Notation and definitions are the same as
+in~\cite{lamiraux:hal-02995125}.
+
+\section{Notation and Definitions}
+
+The constraint is defined as a 6 dimensional \textit{grasp} constraint between a \textit{gripper} and a
+\textit{handle}. The \textit{gripper} is attached to the robotic arm end-effector (\texttt{joint1}) and the \textit{handle} is attached to \texttt{joint2} on the composite kinematic chain. \texttt{root} is the joint that holds the robot arm or the global frame (\texttt{"universe"} in \texttt{pinocchio} software).
+
+We denote by
+\begin{itemize}
+\item $\conf_{in}$ the input variables of the explicit constraint,
+\item $\conf_{out}$ the output variables of the explicit constraint,
+\item $^0M_1$ the pose of \texttt{joint1} in the world frame,
+\item $^0M_2$ the pose of \texttt{joint2} in the world frame,
+\item $^0M_r$ the pose of \texttt{root} in the world frame,
+\item $^2M_h$ the pose of the handle in \texttt{joint2} frame,
+\item $^1M_g$ the pose of the gripper in \texttt{joint1} frame,
+\item $^rM_b$ the pose of the robot arm origin (\texttt{base\_link} in URDF
+  description) in the \texttt{root} frame.  
+\end{itemize}
+
+\section{Inverse kinematics}
+
+Exact inverse kinematics computes the 6 joint values of the robotic arm with
+respect to the input configuration variables:
+\begin{equation}\label{eq:inverse-kinematics}
+  \conf_{out} = f(\conf_{in})
+\end{equation}
+Note that the input variables include a extra degree of freedom that is interpreted as an integer to select among the various solutions of the inverse kinematics.
+
+\section{Jacobian}
+
+In order to implement exact inverse kinematics as an explicit constraint, we need to compute the Jacobian of $f$. For that, let us consider of motion of the kinematic chain that keeps the gripper and handle in the same pose:
+\begin{equation}\label{eq:jac1}
+\forall t\in\reals,\ ^0M_2(t)\;^2M_h = \;^0M_r(t) \;^rM_1(t)\;^1M_g
+\end{equation}
+Moreover
+$$
+\left(\begin{array}{c}
+  \;^r\linvel_{1/r} \\ \;^r\omega_{1/r}
+\end{array}\right) =
+J_{out} \dot{\conf}_{out}
+$$
+Using homogeneous matrix notation and derivating with respect to time, Equation~(\ref{eq:jac1}) can be written as $\forall t\in\reals$,
+\begin{align}\label{eq:jac2}
+  ^0M_2
+  \left(\begin{array}{ll}[\;^2\omega_{2/0}]_{\times} & \;^2\linvel_{2/0} \\ 0&0\end{array}\right)\;^2M_h =&
+    \;^0M_r\left(\begin{array}{ll}[\;^r\omega_{r/0}]_{\times} & \;^r\linvel_{r/0} \\ 0&0\end{array}\right) \;^rM_1\;^1M_g \\
+    & + \;^0M_r \;^rM_1\left(\begin{array}{ll}[\;^1\omega_{1/r}]_{\times} & \;^1\linvel_{1/r} \\ 0&0\end{array}\right)\;^1M_g &
+\end{align}
+\begin{align*}
+  \left(\begin{array}{ll}^0R_2[^2\omega_{2/0}]_{\times} & ^0R_2\;^2\linvel_{2/0} \\ 0&0\end{array}\right)\;^2M_h =&
+    \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times} & ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \;^rM_1\;^1M_g \\
+    & + \;^0M_r \left(\begin{array}{ll}^rR_1[^1\omega_{1/r}]_{\times} & ^rR_1\;^1\linvel_{1/r} \\ 0&0\end{array}\right)\;^1M_g &
+\end{align*}
+%% \begin{align*}
+%%   \left(\begin{array}{ll}^0R_2[^2\omega_{2/0}]_{\times} & ^0R_2\;^2\linvel_{2/0} \\ 0&0\end{array}\right)\left(\begin{array}{ll}\;^2R_h & \;^2\trans_h\\ 0&1\end{array}\right) =&
+%%     \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times} & ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \left(\begin{array}{ll}^rR_g &\;^r\trans_g\\0&1\end{array}\right) \\
+%%     & + \left(\begin{array}{ll}^0R_r &\;^0\trans_r\\0&1\end{array}\right) \left(\begin{array}{ll}^rR_1[^1\omega_{1/r}]_{\times} & ^rR_1\;^1\linvel_{1/r} \\ 0&0\end{array}\right)\left(\begin{array}{ll}^1R_g &\;^1\trans_g\\0&1\end{array}\right) &
+%% \end{align*}
+%% \begin{align*}
+%%   \left(\begin{array}{ll}^0R_2[^2\omega_{2/0}]_{\times}\;^2R_h & ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} \\ 0&0\end{array}\right) =
+%%     \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times}\;^rR_g & ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \\
+%%       + \left(\begin{array}{ll}^0R_r\;^rR_1[^1\omega_{1/r}]_{\times} & ^0R_r\;^rR_1\;^1\linvel_{1/r} \\ 0&0\end{array}\right)\left(\begin{array}{ll}^1R_g &\;^1\trans_g\\0&1\end{array}\right) &
+%% \end{align*}
+\begin{align*}
+  \left(\begin{array}{ll}^0R_2[^2\omega_{2/0}]_{\times}\;^2R_h & ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} \\ 0&0\end{array}\right) =
+    \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times}\;^rR_g & ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \\
+      + \left(\begin{array}{ll}^0R_r\;^rR_1[^1\omega_{1/r}]_{\times}\;^1R_g &
+        ^0R_r\;^rR_1[^1\omega_{1/r}]_{\times}\;^1\trans_g  + ^0R_r\;^rR_1\;^1\linvel_{1/r}\\ 0&0\end{array}\right)&
+\end{align*}
+Extracting the upper blocks of this matrix equality, we get
+\begin{align*}
+  ^0R_2[^2\omega_{2/0}]_{\times}\;^2R_h &= ^0R_r[^r\omega_{r/0}]_{\times}\;^rR_g + ^0R_r\;^rR_1[^1\omega_{1/r}]_{\times}\;^1R_g \\
+  ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} &=
+  ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} + ^0R_r\;^rR_1[^1\omega_{1/r}]_{\times}\;^1\trans_g  + ^0R_r\;^rR_1\;^1\linvel_{1/r} \\
+  ^0R_2[^2\omega_{2/0}]_{\times}\;^2R_h &= ^0R_r[^r\omega_{r/0}]_{\times}\;^rR_g + ^0R_1[^1\omega_{1/r}]_{\times}\;^1R_g \\
+  ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} &=
+  ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} + ^0R_1[^1\omega_{1/r}]_{\times}\;^1\trans_g  + ^0R_1\;^1\linvel_{1/r} \\
+  [^0\omega_{2/0}]_{\times}\;^0R_h &= [^0\omega_{r/0}]_{\times}\;^0R_g + [^0\omega_{1/r}]_{\times}\;^0R_g \\
+  ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} &=
+  ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} + ^0R_1[^1\omega_{1/r}]_{\times}\;^1\trans_g  + ^0R_1\;^1\linvel_{1/r} \\
+\end{align*}
+\bibliographystyle{plain}
+\bibliography{inverse-kinematics}
+
+\end{document}
