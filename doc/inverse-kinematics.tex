@@ -65,12 +65,14 @@ In order to implement exact inverse kinematics as an explicit constraint, we nee
 \forall t\in\reals,\ ^0M_2(t)\;^2M_h = \;^0M_r(t) \;^rM_1(t)\;^1M_g
 \end{equation}
 Moreover
-$$
+\begin{equation}\label{eq:jacobian arm}
 \left(\begin{array}{c}
   \;^r\linvel_{1/r} \\ \;^r\omega_{1/r}
 \end{array}\right) =
 J_{out} \dot{\conf}_{out}
-$$
+\end{equation}
+where $J_{out}$ is the 6x6 matrix composed of the columns of Jacobian of \texttt{joint1} corresponding to the arm degrees of freedom. We denote respectively by $J_{out\;\linvel}$ and $J_{out\;\omega}$ the first 3 and the last 3 lines of this matrix.
+
 Using homogeneous matrix notation and derivating with respect to time, Equation~(\ref{eq:jac1}) can be written as $\forall t\in\reals$,
 \begin{align}\label{eq:jac2}
   ^0M_2
@@ -111,6 +113,65 @@ Extracting the upper blocks of this matrix equality, we get
   ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} &=
   ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} + ^0R_1[^1\omega_{1/r}]_{\times}\;^1\trans_g  + ^0R_1\;^1\linvel_{1/r} \\
 \end{align*}
+As $\;^0R_h = \;^0R_g$ all along the motion,
+\begin{align*}
+  ^0\omega_{2/0} &= \;^0\omega_{r/0} + \;^0\omega_{1/r}\\
+  -^0R_2[\;^2\trans_h]_{\times}\;^2\omega_{2/0} + ^0R_2\;^2\linvel_{2/0} &=
+  -^0R_r[\;^r\trans_g]_{\times}\;^r\omega_{r/0} + ^0R_r\;^r\linvel_{r/0} - ^0R_1[\;^1\trans_g]_{\times}\;^1\omega_{1/r} + \;^0R_1\;^1\linvel_{1/r} \\
+  ^0R_2\;^2\omega_{2/0} &= \;^0R_r\;^r\omega_{r/0} + \;^0R_r\;^r\omega_{1/r}\\
+  -^0R_2[\;^2\trans_h]_{\times}\;^2\omega_{2/0} + ^0R_2\;^2\linvel_{2/0} &=
+  -^0R_r[\;^r\trans_g]_{\times}\;^r\omega_{r/0} + ^0R_r\;^r\linvel_{r/0} - ^0R_1[\;^1\trans_g]_{\times} \;^1R_{r}\;^r\omega_{1/r} + \;^0R_1\;^1\linvel_{1/r}
+\end{align*}
+Using~(\ref{eq:jacobian arm}), we can write
+\begin{align*}
+  ^r\omega_{1/r} =& \;^rR_2\;^2\omega_{2/0} - \;^r\omega_{r/0}\\
+  -^0R_2[\;^2\trans_h]_{\times}\;^2\omega_{2/0} + \;^0R_2\;^2\linvel_{2/0} =&
+  -\;^0R_r[\;^r\trans_g]_{\times}\;^r\omega_{r/0} + \;^0R_r\;^r\linvel_{r/0} \\ &-\;^0R_1[\;^1\trans_g]_{\times} (\;^1R_2\;^2\omega_{2/0} - \;^1R_{r}\;^r\omega_{r/0}) + \;^0R_1\;^1\linvel_{1/r}
+\end{align*}
+\begin{align*}
+  ^1\linvel_{1/r} =& \;^1R_0\left(
+  -\;^0R_2[\;^2\trans_h]_{\times}\;^2\omega_{2/0} + \;^0R_2\;^2\linvel_{2/0}
+  +\;^0R_r[\;^r\trans_g]_{\times}\;^r\omega_{r/0} - \;^0R_r\;^r\linvel_{r/0} \right.\\
+  &\left.+\;^0R_1[\;^1\trans_g]_{\times} (\;^1R_2\;^2\omega_{2/0} - \;^1R_{r}\;^r\omega_{r/0})  \right)\\
+  ^r\omega_{1/r} =& \;^rR_2\;^2\omega_{2/0} - \;^r\omega_{r/0}
+\end{align*}
+\begin{align}
+  ^1\linvel_{1/r} =&
+  -\;^1R_2[\;^2\trans_h]_{\times}\;^2\omega_{2/0} + \;^1R_2\;^2\linvel_{2/0}
+  +\;^1R_r[\;^r\trans_g]_{\times}\;^r\omega_{r/0} - \;^1R_r\;^r\linvel_{r/0}\\
+  \label{eq:jac31}
+  &+\;^0R_1[\;^1\trans_g]_{\times} (\;^1R_2\;^2\omega_{2/0} - \;^1R_{r}\;^r\omega_{r/0})\\
+  \label{eq:jac32}
+  ^r\omega_{1/r} =& \;^rR_2\;^2\omega_{2/0} - \;^r\omega_{r/0}
+\end{align}
+We denote
+\begin{itemize}
+\item $J_{2\;in}$ the columns of the Jacobian of \texttt{joint2} corresponding to the input variables,
+\item $J_{2\;in}^{\linvel}$, $J_{2\;in}^{\omega}$, respectively the first 3 and last 3 lines of the latter,
+\item $J_{r\;in}$ the columns of the Jacobian of \texttt{root} corresponding to the input variables,
+\item $J_{r\;in}^{\linvel}$, $J_{r\;in}^{\omega}$, respectively the first 3 and last 3 lines of the latter,
+\end{itemize}
+With this notation, (\ref{eq:jac31}-\ref{eq:jac32}) become
+\begin{align*}
+  ^1\linvel_{1/r} =&
+  \left(-\;^1R_2[\;^2\trans_h]_{\times}J_{2\;in}^{\omega} + \;^1R_2J_{2\;in}^{\linvel}
+  +\;^1R_r[\;^r\trans_g]_{\times}J_{r\;in}^{\omega} - \;^1R_rJ_{r\;in}^{\linvel}\right.\\
+  &\left.+\;^0R_1[\;^1\trans_g]_{\times} (\;^1R_2J_{2\;in}^{\omega} - \;^1R_{r}J_{r\;in}^{\omega})\right)\dot{\conf}_{in}\\
+  ^r\omega_{1/r} =& \left(\;^rR_2J_{2\;in}^{\omega} - J_{r\;in}^{\omega}\right)\dot{\conf}_{in}
+\end{align*}
+Let $J$ be the 6 matrix the first 3 line of which are
+$$
+-\;^1R_2[\;^2\trans_h]_{\times}J_{2\;in}^{\omega} + \;^1R_2J_{2\;in}^{\linvel}
++\;^1R_r[\;^r\trans_g]_{\times}J_{r\;in}^{\omega} - \;^1R_rJ_{r\;in}^{\linvel}+\;^0R_1[\;^1\trans_g]_{\times} (\;^1R_2J_{2\;in}^{\omega} - \;^1R_{r}J_{r\;in}^{\omega})
+$$
+and the last 3 line of which are
+$$
+^rR_2J_{2\;in}^{\omega} - J_{r\;in}^{\omega}
+$$
+Using~(\ref{eq:jacobian arm}), we can write
+$$
+\dot{\conf}_{out} = J_{out}^{-1}J \dot{\conf}_{in} \;\mbox{ and }\; \frac{\partial f}{\partial \conf_{in}} = J_{out}^{-1}J
+$$
 \bibliographystyle{plain}
 \bibliography{inverse-kinematics}
 
