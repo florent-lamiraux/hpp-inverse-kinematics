@@ -74,7 +74,7 @@ protected:
     // pose of last joint in robot arm base_link
     Transform3s Minput(rootPose.inverse() * joint1Pose);
     hppDout(info, "rootPose=" << rootPose);
-    hppDout(info, "joint1Pose=" << handlePose);
+    hppDout(info, "joint1Pose=" << joint1Pose);
     hppDout(info, "Minput=" << Minput);
     // Compute inverse kinematics here
 
