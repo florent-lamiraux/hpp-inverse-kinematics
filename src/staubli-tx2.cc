@@ -35,6 +35,7 @@
 #include <hpp/manipulation/handle.hh>
 #include <hpp/pinocchio/gripper.hh>
 #include <hpp/util/debug.hh>
+#include <pinocchio/algorithm/jacobian.hpp>
 #include <pinocchio/multibody/data.hpp>
 #include <../src/configuration-variables.hh>
 
@@ -62,18 +63,33 @@ protected:
     DifferentiableFunction(BlockIndex::cardinal(inConf), BlockIndex::cardinal(inVel),
 			   LiegroupSpace::Rn(6), name), robot_(robot), joint1_ (joint1),
     joint2_ (joint2), frame1_ (frame1), frame2_ (frame2), baseLinkIdx_(
-        robot->model().getFrameId(baseLinkName)), inConf_(inConf), inVel_(inVel), outConf_(outConf),
+      robot->model().getFrameId(baseLinkName)),
+    rootIdx_(robot->model().frames[baseLinkIdx_].parentJoint),
+    inConf_(inConf), inVel_(inVel), outConf_(outConf),
     data_(robot->model()) {
   }
+
+  inline matrix3_t cross(const vector3_t& u) {
+    matrix3_t res;
+    res.setZero();
+    res(0,1) = -u(2);
+    res(0,2) =  u(1);
+    res(1,0) =  u(2);
+    res(1,2) = -u(0);
+    res(2,0) = -u(1);
+    res(2,1) =  u(0);
+    return res;
+  }
+
   virtual void impl_compute(LiegroupElementRef result, vectorIn_t argument) const {
     forwardKinematics(argument);
-    // pose of the robot base link
-    Transform3s rootPose(data_.oMf[baseLinkIdx_]);
+    // pose of the robot root joint
+    Transform3s _0Mr(data_.oMi[rootIdx_]);
     // pose of joint1: J2 * F2 * F1^{-1}
     Transform3s joint1Pose(data_.oMi[joint2_->index()] * frame2_ * frame1_.inverse());
     // pose of last joint in robot arm base_link
-    Transform3s Minput(rootPose.inverse() * joint1Pose);
-    hppDout(info, "rootPose=" << rootPose);
+    Transform3s Minput(_0Mr.inverse() * joint1Pose);
+    hppDout(info, "_0Mr=" << _0Mr);
     hppDout(info, "joint1Pose=" << joint1Pose);
     hppDout(info, "Minput=" << Minput);
     // Compute inverse kinematics here
@@ -81,6 +97,38 @@ protected:
     result.vector().setZero();
   }
   virtual void impl_jacobian(matrixOut_t jacobian, vectorIn_t arg) const {
+    forwardKinematics(arg);
+    J_.resize(6, inVel_.nbIndices());
+    Transform3s _0M1(data_.oMi[joint1_->index()]);
+    Transform3s _0M2(data_.oMi[joint2_->index()]);
+    Transform3s _0Mr(data_.oMi[rootIdx_]);
+    Transform3s _rM2(_0Mr.inverse() * _0M2);
+    matrix3_t _0R1(_0M1.rotation());
+    matrix3_t _1R2(_0R1.transpose() * _0M2.rotation());
+    matrix3_t _1Rr(_0R1.transpose() * _0Mr.rotation());
+    matrix3_t _2th_cross(cross(frame2_.translation()));
+    // pose of the robot root joint
+    Transform3s _0Mg(_0M1*frame1_);
+    Transform3s _1Mg(_0M1.inverse() * _0Mg);
+    vecctor3_t _1tg(_1Mg.translation());
+    vector3_t _rtg((_0Mr.inverse()*_0Mg).translation());
+
+    J2_.resize(6, robot_->numberDof());
+    J2_.setZeros();
+    Jr_.resize(6, robot_->numberDof());
+    Jr_.setZeros();
+    J1_.resize(6, robot_->numberDof());
+    J1_.setZeros();
+    pinocchio::getJointJacobian(robot_->model(), data_, joint2_->index(), pinocchio::LOCAL, J2_);
+    pinocchio::getJointJacobian(robot_->model(), data_, rootIdx_, pinocchio::LOCAL, Jr_);
+    J2_in_ = inConf_.rview(J2_);
+    Jr_in_ = inConf_.rview(Jr_);
+    J.topRows(3) = _1R2*(-_2th_cross*J2_in_.bottomRows(3) + J2_in_.topRows(3)) +
+      _1Rr*(cross(_rtg)*Jr_in_.bottomRows(3) - Jr_in_.topRows(3)) +
+      _0R1*cross(_1tg)*(_1R2*J2_in_.bottomRows(3) - _1Rr*Jr_in.bottomRows(3));
+    J.bottomRows(3) = _rM2.rotation() * J2_in_.bottomRows(3) - Jr_in.bottomRows(3);
+    matrix6_t Jout(outConf_.rview(J1_));
+    jacobian = Jout_.inverse() * J;
   }
 private:
   // Compute forward kinematics with only input variables
@@ -91,13 +139,14 @@ private:
       inConf_.lview(q_) = arg;
       robot_->currentConfiguration(q_);
     }
-    robot_->computeForwardKinematics(pinocchio::JOINT_POSITION);
+    robot_->computeForwardKinematics(pinocchio::JOINT_POSITION & pinocchio::JACOBIAN);
   }
 
   DevicePtr_t robot_;
   JointConstPtr_t joint1_, joint2_;
   Transform3s frame1_, frame2_;
   FrameIndex baseLinkIdx_;
+  JointIndex rootIdx_;
   Eigen::RowBlockIndices inConf_;
   Eigen::ColBlockIndices inVel_;
   Eigen::RowBlockIndices outConf_;
@@ -105,6 +154,7 @@ private:
   // Local members to avoid memory allocation
   mutable vector_t qsmall_, q_;
   mutable ::pinocchio::Data data_;
+  mutable matrix_t J_, J1_, J2_, J2_in_, Jr_, Jr_in_;
 }; // class InverseKinematics
 
 class StaubliTX2 : public constraints::Explicit {
