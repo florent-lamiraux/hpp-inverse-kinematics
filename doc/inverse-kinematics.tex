@@ -3,6 +3,7 @@
 \usepackage{graphicx}
 \usepackage{amssymb}
 \usepackage{amsmath}
+\usepackage{cancel}
 
 \newcommand\linvel{\mathbf{v}}
 \newcommand\trans{\mathbf{t}}
@@ -46,7 +47,7 @@ We denote by
 \item $^2M_h$ the pose of the handle in \texttt{joint2} frame,
 \item $^1M_g$ the pose of the gripper in \texttt{joint1} frame,
 \item $^rM_b$ the pose of the robot arm origin (\texttt{base\_link} in URDF
-  description) in the \texttt{root} frame.  
+  description) in the \texttt{root} frame.
 \end{itemize}
 
 \section{Inverse kinematics}
@@ -57,6 +58,195 @@ respect to the input configuration variables:
   \conf_{out} = f(\conf_{in})
 \end{equation}
 Note that the input variables include a extra degree of freedom that is interpreted as an integer to select among the various solutions of the inverse kinematics.
+
+
+
+Homogeneous transformation matrix  $T_{i-1,i}$  from frame $i-1$  to frame $i$  :
+
+\[
+\begin{array}{cc}
+T_{0,1} =
+\begin{bmatrix}
+  \cos(q_1) & -\sin(q_1) & 0 & 0 \\
+  \sin(q_1) & \cos(q_1) & 0 & 0 \\
+  0 & 0 & 1 & r_1 \\
+  0 & 0 & 0 & 1 \\
+
+\end{bmatrix}
+
+&
+
+T_{1,2} =
+\begin{bmatrix}
+  \cos(q_2) & 0 & \sin(q_2) & r_2 \\
+  0 & 1 & 0 & 0 \\
+  -\sin(q_2) & 0 & \cos(q_2) & 0 \\
+  0 & 0 & 0 & 1 \\
+
+\end{bmatrix}
+\end{array}
+\]
+
+\[
+\begin{array}{cc}
+T_{2,3} =
+\begin{bmatrix}
+  \cos(q_3) & 0 & \sin(q_3) & 0 \\
+  0 & 1 & 0 & r_3 \\
+  -\sin(q_3) & 0 & \cos(q_3) & r_4 \\
+  0 & 0 & 0 & 1 \\
+
+\end{bmatrix}
+&
+T_{3,4} =
+\begin{bmatrix}
+  \cos(q_4) & -\sin(q_4) & 0 & 0 \\
+  \sin(q_4) & \cos(q_4) & 0 & 0 \\
+  0 & 0 & 1 & 0 \\
+  0 & 0 & 0 & 1 \\
+
+\end{bmatrix}
+\end{array}
+\]
+\[
+\begin{array}{cc}
+T_{4,5} =
+\begin{bmatrix}
+  \cos(q_5) & 0 & \sin(q_5) & 0 \\
+  0 & 1 & 0 & 0 \\
+  -\sin(q_5) & 0 & \cos(q_5) & r_5 \\
+  0 & 0 & 0 & 1 \\
+
+\end{bmatrix}
+
+&
+
+T_{5,6} =
+\begin{bmatrix}
+  \cos(q_6) & -\sin(q_6) & 0 & 0 \\
+  \sin(q_6) & \cos(q_6) & 0 & 0\\
+  0 & 0 & 1 & r_6\\
+  0 & 0 & 0 & 1\\
+
+\end{bmatrix}
+\end{array}
+\]
+
+
+Calculation of  $T_{0,5}$ and $T_{3,6}$ to determinate each configuration expressions. We assume that $sin(q_i)=s_i$  for each i between 1 and 6. \\
+\begin{align*}
+T_{0,3} = T_{0,1} T_{1,2} T_{2,3} T_{3,4} T_{4,5} =
+\begin{bmatrix}
+  c_1c_{2+3} & -s_1 & c_1s_{2+3} &r_5c_1s_{2+3}-r_3s_1+r_4c_1s_2+c_1r_2\\
+  s_1c_{2+3} & c_1 & s_1c_{2+3} & r_5s_1s_{2+3}+r_3c_1+r_4s_1s_2+r_2s_1 \\
+  -s_{2+3} & 0 & c_{2+3} & r_5c_{2+3}+r_4c_2+r_1 \\
+  0 & 0 & 0 & 1 \\
+\end{bmatrix}
+  /!\ la matrice de rotation est pas bonne faut la corriger.
+\end{align*}
+
+\[
+T_{3,6} = T_{3,4} T_{4,5} T_{5,6}= \\
+\begin{bmatrix}
+  c_4c_5c_6+s_4s_6 & -c_4c_5s_6-s_4c_6 & c_4s_5 & r_6c_4s_5 \\
+  s_4c_5c_6-c_4s_6 & -s_4c_5s_6+c_4c_6 & s_4s_5 & r_6s_4s_5 \\
+  -s_5c_6 & s_5s_6 & c_5 & r_6c_5 + r_5 \\
+  0 & 0 & 0 & 1 \\
+\end{bmatrix}
+\]
+
+In order to know the configuration for the position of the concourant point, we need to use the translation vector in $T_{0,5}$ matrix and trigonometrix tools.
+
+For $q_1$, with a manipulation of the plane described by the two other articulation we find:
+
+\begin{equation}
+  \begin{bmatrix}
+    c1 & -s1\\
+    s_1 & c_1\\
+  \end{bmatrix}
+  \begin{bmatrix}
+    x\\
+    r_3\\
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+    c_1x-s_1r_3\\
+    s_1x+c_1r_3\\
+  \end{bmatrix}
+\end{equation}
+
+we identify with translation matrix from $T_{0,5}$:
+\begin{align*}
+  c_1x-\cancel{s_1r_3}&=r_5c_1s_{2+3}-\cancel{s_1r_3} +c_1s_2r_4+ c_1r_2\\
+  s_1x+\cancel{c_1r_3}&=r_5s_1s_{2+3}+\cancel{c_1r_3}+s_1s_2r_4+s_1r_2\\
+\end{align*}
+we simplify by $c_1$ and $s_1$ :
+\begin{equation}
+  x=r_5s_{2+3}+s_2r_4+r_2
+\end{equation}
+
+the x we use correspond to the horizontal displacement in the plane of rotation $q_1$, so we want to have x et y from the root frame :
+\begin{align*}
+  x'&=c_1x\\
+  y'&=s_1x\\
+\end{align*}
+
+We finaly have :
+\begin{align*}
+  x'&=c_1(r_5s_{2+3}+s_2r_4+r_2)\\
+  y'&=s_1(r_5s_{2+3}+s_2r_4+r_2)\\
+\end{align*}
+
+$q_1$ is given by the following expression :
+\[
+q_1=\text{atan2}(y',x')
+\]
+
+on remarque que une autre solution possible est:
+\[
+q_1=\pi-\text{atan2}(x,y)
+\]
+
+
+For $q_2$ and $q_3$, we consider the plane of rotation defined by $q_1$.
+We pose $z'=z-r_1$.
+With al-kashi formula we can write that :
+\begin{align*}
+  \sqrt{x^2+z'^2}^2&=r_4^2+r_5^2-2r_4r_5\cos(\pi-q_3)\\
+  x²+z'²&=r_4^2+r_5^2+2r_4r_5cos(q_3)\\
+  \cos(q_3)&= \frac{x^2+y'^2-r_4^2-r_5^2}{2r_4r_5}\\
+  q_3&=\arccos(\frac{x^2+(y-r_1)^2-r_4^2-r_5^2}{2r_4r_5})\\
+\end{align*}
+for $q_2$:
+\begin{align*}
+  x&=\sin(q_2)r_4+r_5\sin(q_2+q_3)\\
+  y&=\cos(q_2)r_4+\cos(q_2+q_3)r_5 + r_1\\
+\end{align*}
+\begin{align*}
+  x&=\sin(q_2)r_4+r_5(\sin(q_2)\cos(q_3)+\sin(q_3)\cos(q_2))\\
+  y'&=\cos(q_2)r_4+r_5(\cos(q_3)\cos(q_2)-\sin(q_3)\sin(q_2))
+\end{align*}
+
+we define:
+\begin{align*}
+  A&= r_4+\cos(q_3)r_5\\
+  B&= \sin(q_3)r_5 \\
+  R&=\sqrt{A^2+B^2}\\
+  \phi&=\text{atan2}(B,A)\\
+\end{align*}
+
+Using the auxiliary angle technique (à preciser?) we find :
+
+\begin{align*}
+  x&=R\sin(q_2+\phi)\\
+  q_2&=\arcsin(\frac{x}{R})-\phi\\
+  \text{or}\\
+  q_2&=\pi-\arcsin(\frac{x}{R})-\phi\\
+\end{align*}
+
+
+
+
 
 \section{Jacobian}
 
