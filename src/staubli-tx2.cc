@@ -42,6 +42,18 @@
 namespace hpp {
 namespace inverseKinematics {
 
+inline matrix3_t cross(const vector3_t& u) {
+  matrix3_t res;
+  res.setZero();
+  res(0,1) = -u(2);
+  res(0,2) =  u(1);
+  res(1,0) =  u(2);
+  res(1,2) = -u(0);
+  res(2,0) = -u(1);
+  res(2,1) =  u(0);
+  return res;
+}
+
 class InverseKinematics : public DifferentiableFunction {
 public:
   typedef shared_ptr<InverseKinematics> Ptr_t;
@@ -67,18 +79,6 @@ protected:
     rootIdx_(robot->model().frames[baseLinkIdx_].parentJoint),
     inConf_(inConf), inVel_(inVel), outConf_(outConf),
     data_(robot->model()) {
-  }
-
-  inline matrix3_t cross(const vector3_t& u) {
-    matrix3_t res;
-    res.setZero();
-    res(0,1) = -u(2);
-    res(0,2) =  u(1);
-    res(1,0) =  u(2);
-    res(1,2) = -u(0);
-    res(2,0) = -u(1);
-    res(2,1) =  u(0);
-    return res;
   }
 
   virtual void impl_compute(LiegroupElementRef result, vectorIn_t argument) const {
@@ -110,25 +110,26 @@ protected:
     // pose of the robot root joint
     Transform3s _0Mg(_0M1*frame1_);
     Transform3s _1Mg(_0M1.inverse() * _0Mg);
-    vecctor3_t _1tg(_1Mg.translation());
+    vector3_t _1tg(_1Mg.translation());
     vector3_t _rtg((_0Mr.inverse()*_0Mg).translation());
 
     J2_.resize(6, robot_->numberDof());
-    J2_.setZeros();
+    J2_.setZero();
     Jr_.resize(6, robot_->numberDof());
-    Jr_.setZeros();
+    Jr_.setZero();
     J1_.resize(6, robot_->numberDof());
-    J1_.setZeros();
-    pinocchio::getJointJacobian(robot_->model(), data_, joint2_->index(), pinocchio::LOCAL, J2_);
-    pinocchio::getJointJacobian(robot_->model(), data_, rootIdx_, pinocchio::LOCAL, Jr_);
+    J1_.setZero();
+    ::pinocchio::getJointJacobian(
+      robot_->model(), data_, joint2_->index(),::pinocchio::LOCAL, J2_);
+    ::pinocchio::getJointJacobian(robot_->model(), data_, rootIdx_, ::pinocchio::LOCAL, Jr_);
     J2_in_ = inConf_.rview(J2_);
     Jr_in_ = inConf_.rview(Jr_);
-    J.topRows(3) = _1R2*(-_2th_cross*J2_in_.bottomRows(3) + J2_in_.topRows(3)) +
+    J_.topRows(3) = _1R2*(-_2th_cross*J2_in_.bottomRows(3) + J2_in_.topRows(3)) +
       _1Rr*(cross(_rtg)*Jr_in_.bottomRows(3) - Jr_in_.topRows(3)) +
-      _0R1*cross(_1tg)*(_1R2*J2_in_.bottomRows(3) - _1Rr*Jr_in.bottomRows(3));
-    J.bottomRows(3) = _rM2.rotation() * J2_in_.bottomRows(3) - Jr_in.bottomRows(3);
+      _0R1*cross(_1tg)*(_1R2*J2_in_.bottomRows(3) - _1Rr*Jr_in_.bottomRows(3));
+    J_.bottomRows(3) = _rM2.rotation() * J2_in_.bottomRows(3) - Jr_in_.bottomRows(3);
     matrix6_t Jout(outConf_.rview(J1_));
-    jacobian = Jout_.inverse() * J;
+    jacobian = Jout.inverse() * J_;
   }
 private:
   // Compute forward kinematics with only input variables
@@ -206,7 +207,7 @@ public:
     explicitFunction()->value(result, qin);
   }
   /// Compute Jacobian value assuming right hand side is 0.
-  void jacobianOutputValue(vectorIn_t qin, LiegroupElementConstRef g_value,
+  void jacobianOutputValue(vectorIn_t qin, LiegroupElementConstRef,
 			   LiegroupElementConstRef rhs, matrixOut_t jacobian) const
   {
     assert(rhs == rhs.space()->neutral());

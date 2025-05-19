@@ -42,6 +42,7 @@ namespace inverseKinematics {
   typedef pinocchio::Joint Joint;
   typedef pinocchio::JointPtr_t JointPtr_t;
   typedef pinocchio::JointConstPtr_t JointConstPtr_t;
+  typedef pinocchio::JointIndex JointIndex;
   typedef pinocchio::LiegroupElementConstRef LiegroupElementConstRef;
   typedef pinocchio::LiegroupElementRef LiegroupElementRef;
   typedef pinocchio::LiegroupSpace LiegroupSpace;
@@ -69,6 +70,8 @@ namespace inverseKinematics {
   using constraints::EqualToZero;
 
   typedef shared_ptr<const manipulation::Handle> HandleConstPtr_t;
+
+  typedef Eigen::Matrix<value_type, 6, 6> matrix6_t;
 } // namespace inverseKinematics
 } // namespace hpp
 
