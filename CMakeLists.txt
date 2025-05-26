@@ -97,6 +97,7 @@ install(TARGETS ${PROJECT_NAME} EXPORT ${TARGETS_EXPORT_NAME}
   DESTINATION lib)
 
 if (CORBA)
+  findpython()
   add_project_dependency(hpp-corbaserver)
   add_subdirectory(corba)
 endif(CORBA)
