@@ -59,8 +59,27 @@ respect to the input configuration variables:
 \end{equation}
 Note that the input variables include a extra degree of freedom that is interpreted as an integer to select among the various solutions of the inverse kinematics.
 
-
-
+\begin{figure}[h]
+  \centering
+  \graphicspath{{./figures/}}
+  \includegraphics[width=0.5\textwidth]{staubli-TX90-schematic.pdf}
+\end{figure}
+For the Staubli TX90, we have the following cotation in meters:
+\begin{align*}
+  r1&=0.478\\
+  r2&=0.050\\
+  r3&=0.05\\
+  r4&=0.425\\
+  r5&=0.425\\
+  r6&=0.1\\
+\end{align*}
+We are going to use the following schematic to determinate each transformation matrix for each frame.
+We denote by:
+\begin{itemize}
+\item $T_{i-1,i}$ the homogeneous transformation matrix from frame $i-1$ to frame $i$,\\
+\item $T_{0,1}$ the transformation matrix from base link to the first joint frame,\\
+\item $T_{5,6}$ the transformation matrix from joint 5 frame to the gripper frame,\\
+\end{itemize}
 Homogeneous transformation matrix  $T_{i-1,i}$  from frame $i-1$  to frame $i$  :
 
 \[
@@ -133,16 +152,15 @@ T_{5,6} =
 \]
 
 
-Calculation of  $T_{0,5}$ and $T_{3,6}$ to determinate each configuration expressions. We assume that $sin(q_i)=s_i$  for each i between 1 and 6. \\
+Calculation of  $T_{0,5}$ and $T_{3,6}$ to determinate each configuration expressions, we only use the translation vector to determinate the concurant point. We assume that $sin(q_i)=s_i$  for each i between 1 and 6. \\
 \begin{align*}
 T_{0,3} = T_{0,1} T_{1,2} T_{2,3} T_{3,4} T_{4,5} =
 \begin{bmatrix}
-  c_1c_{2+3} & -s_1 & c_1s_{2+3} &r_5c_1s_{2+3}-r_3s_1+r_4c_1s_2+c_1r_2\\
-  s_1c_{2+3} & c_1 & s_1c_{2+3} & r_5s_1s_{2+3}+r_3c_1+r_4s_1s_2+r_2s_1 \\
-  -s_{2+3} & 0 & c_{2+3} & r_5c_{2+3}+r_4c_2+r_1 \\
+  X & X & X &r_5c_1s_{2+3}-r_3s_1+r_4c_1s_2+c_1r_2\\
+  X & X & X & r_5s_1s_{2+3}+r_3c_1+r_4s_1s_2+r_2s_1 \\
+  X & X & X & r_5c_{2+3}+r_4c_2+r_1 \\
   0 & 0 & 0 & 1 \\
 \end{bmatrix}
-  /!\ la matrice de rotation est pas bonne faut la corriger.
 \end{align*}
 
 \[
@@ -214,18 +232,24 @@ With al-kashi formula we can write that :
 \begin{align*}
   \sqrt{x^2+z'^2}^2&=r_4^2+r_5^2-2r_4r_5\cos(\pi-q_3)\\
   x²+z'²&=r_4^2+r_5^2+2r_4r_5cos(q_3)\\
-  \cos(q_3)&= \frac{x^2+y'^2-r_4^2-r_5^2}{2r_4r_5}\\
-  q_3&=\arccos(\frac{x^2+(y-r_1)^2-r_4^2-r_5^2}{2r_4r_5})\\
+  \cos(q_3)&= \frac{x^2+z'^2-r_4^2-r_5^2}{2r_4r_5}\\
+  q_3&=\arccos(\frac{x^2+(z-r_1)^2-r_4^2-r_5^2}{2r_4r_5})\\
 \end{align*}
 for $q_2$:
-\begin{align*}
+\begin{equation}
+\begin{cases}
   x&=\sin(q_2)r_4+r_5\sin(q_2+q_3)\\
-  y&=\cos(q_2)r_4+\cos(q_2+q_3)r_5 + r_1\\
-\end{align*}
-\begin{align*}
+  z&=\cos(q_2)r_4+\cos(q_2+q_3)r_5 + r_1\\
+\end{cases}
+\end{equation}
+\begin{equation}
+\begin{cases}
   x&=\sin(q_2)r_4+r_5(\sin(q_2)\cos(q_3)+\sin(q_3)\cos(q_2))\\
-  y'&=\cos(q_2)r_4+r_5(\cos(q_3)\cos(q_2)-\sin(q_3)\sin(q_2))
-\end{align*}
+  z'&=\cos(q_2)r_4+r_5(\cos(q_3)\cos(q_2)-\sin(q_3)\sin(q_2))\\
+\end{cases}
+\end{equation}
+
+
 
 we define:
 \begin{align*}
@@ -244,6 +268,72 @@ Using the auxiliary angle technique (à preciser?) we find :
   q_2&=\pi-\arcsin(\frac{x}{R})-\phi\\
 \end{align*}
 
+In order to computate the orientation of the terminal organ, we are going to use rotational matrix from $T_{0,3}$,$T_{0,6}$ and $T_{3,6}$  resulting in an equation system that we will solve.
+We start from the following expression:
+\begin{equation}
+  R_{0,3}^TR_{0,6}=R_{3,6}
+\end{equation}
+We define :
+
+\begin{equation}
+  R_{0,6}=
+  \begin{bmatrix}
+    R_{11} & R_{12} & R_{13}\\
+    R_{21} & R_{22} & R_{23}\\
+    R_{31} & R_{32} & R_{33}\\
+  \end{bmatrix}
+\end{equation}
+
+Where the $R_{i,j}$ coefficient are known.
+
+\begin{equation}
+  \begin{bmatrix}
+    R_{11}c_1c_{2+3}+R_{12}s_1c_{2+3}-s_{2+3}R_{31} & R_{12}c_1c_{2+3}+R_{22}s_1c_{2+3}-R_{32}s_{2+3} & R_{13}c_1c_{2+3}+R_{23}s_1c_{2+3}-R_{33}s_{2+3}\\
+    -R_{11}s_1+R_{21}c_1 & -R{12}s_1+R_{22}c_1 & -R_{13}s_1+R_{23}c_1\\
+    R_{11}c_1s_{2+3}+R_{21}s_1s_{2+3}+R_{31}c_{2+3} & R_{12}c_1s_{2+3}+R_{22}s_1s_{2+3}+R_{32}c_{2+3} & R_{13}c_1c_{2+3}+R_{23}s_1s_{2+3}R_{23}+R_{33}c_{2+3}\\
+  \end{bmatrix}
+\end{equation}
+
+this equation gives us the following system :
+\begin{equation}
+\begin{cases}
+  c_4c_5c_6+c_4s_6&=R_{11}c_1c_{2+3}+R_{12}s_1s_{2+3}-R_{31}s_{2+3}\\
+  -c_4c_5s_6-s_4s_6&=R_{12}c_1c_{2+3}+R_{22}s_1s_{2+3}R_{22}-R_{32}s_{2+3}\\
+  c_4s_5&=R_{13}c_1c_{2+3}+R_{23}s_1c_{2+3}-s_{2+3}s_{2+3}R_{33}\\
+  s_4c_5c_6-c_4s_6&=-s_1R_{11}+R_{12}c_1\\
+  -s_4c_5c_6-c_4s_6&=-s_1R_{11}+c_1R_{22}\\
+  s_4s_5&=-s_1R_{13}+c_1R_{23}\\
+  -s_5c_6&=c_1s_{2+3}R_{11}+R_{21}s_1s_{2+3}+R_{31}c_{2+3}\\
+  s_5s_6&=c_1s_{2+3}R_{12}+s_1s_{2+3}R_{22}+c_{2+3}R_{32}\\
+  c_5&=c_1s_{2+3}R_{13}+s_1s_{2+3}R_{23}+c_{2+3}R_{33}\\
+\end{cases}
+\end{equation}
+with the last row we can write:
+\begin{equation*}
+  \boxed{q_5=\arccos(c_1s_{2+3}R_{13}+s_1s_{2+3}R_{23}+c_{2+3}R_{33})}
+  \text{ or }
+  \boxed{q_5=-\arccos(c_1s_{2+3}R_{13}+s_1s_{2+3}R_{23}+c_{2+3}R_{33})}
+\end{equation*}
+with the $8^{th}$ row :
+\begin{equation}
+  s_6=\frac{1}{s_5}(c_1s_{2+3}R_{12}+s_1s_{2+3}R_{22}+c_{2+3}R_{32})
+\end{equation}
+\[
+\boxed{q_6=\arcsin(\frac{1}{s_5}(c_1s_{2+3}R_{12}+s_1s_{2+3}R_{22}+c_{2+3}R_{32}))}\\
+\]
+\text{ or }\\
+\[
+\boxed{q_6=\pi-\arcsin(\frac{1}{s_5}(c_1s_{2+3}R_{12}+s_1s_{2+3}R_{22}+c_{2+3}R_{32}))}\\
+\]
+with the $6^{th}$ row :
+\begin{equation}
+  s_4=\frac{1}{s_5}(-s_1R_{13}+c_1R_{23})
+\end{equation}
+\[
+\boxed{q_4=\arcsin(\frac{1}{s_5}(-s_1R_{13}+c_1R_{23}))}
+\text{ or }
+\boxed{q_4=\pi-arcsin(\frac{1}{s_5}(-s_1R_{13}+c_1R_{23}))}
+\]
 
 
 
