@@ -35,7 +35,10 @@
 #include <hpp/manipulation/handle.hh>
 #include <hpp/pinocchio/gripper.hh>
 #include <hpp/util/debug.hh>
+#include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/algorithm/jacobian.hpp>
+#include <pinocchio/algorithm/joint-configuration.hpp>
+#include <pinocchio/algorithm/kinematics.hpp>
 #include <pinocchio/multibody/data.hpp>
 #include <../src/configuration-variables.hh>
 
@@ -80,7 +83,11 @@ protected:
       robot->model().getFrameId(baseLinkName)),
     rootIdx_(robot->model().frames[baseLinkIdx_].parentJoint),
     inConf_(inConf), inVel_(inVel), outConf_(outConf),
-    data_(robot->model()) {
+    data_(robot->model()), nq_(robot->model().nq) {
+    hppDout(info, "baseLinkName=" << baseLinkName);
+    hppDout(info, "baseLinkIdx_=" << baseLinkIdx_);
+    q_.resize(robot->configSize());
+    ::pinocchio::neutral(robot->model(), q_.head(nq_));
   }
 
   virtual void impl_compute(LiegroupElementRef result, vectorIn_t argument) const {
@@ -200,12 +207,11 @@ private:
   void forwardKinematics(vectorIn_t arg) const {
     qsmall_ = inConf_.rview(robot_->currentConfiguration());
     if (qsmall_ != arg) {
-      q_ = robot_->currentConfiguration();
       inConf_.lview(q_) = arg;
-      robot_->currentConfiguration(q_);
     }
-    robot_->computeForwardKinematics(pinocchio::JOINT_POSITION | pinocchio::JACOBIAN);
-    robot_->computeFramesForwardKinematics();
+    ::pinocchio::forwardKinematics(robot_->model(), data_, q_.head(nq_));
+    ::pinocchio::computeJointJacobians(robot_->model(), data_, q_.head(nq_));
+    ::pinocchio::updateFramePlacements(robot_->model(), data_);
   }
 
   DevicePtr_t robot_;
@@ -216,7 +222,7 @@ private:
   Eigen::RowBlockIndices inConf_;
   Eigen::ColBlockIndices inVel_;
   Eigen::RowBlockIndices outConf_;
-
+  int nq_;
   // Local members to avoid memory allocation
   mutable vector_t qsmall_, q_;
   mutable ::pinocchio::Data data_;
