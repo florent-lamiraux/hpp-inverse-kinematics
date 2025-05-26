@@ -42,6 +42,8 @@
 namespace hpp {
 namespace inverseKinematics {
 
+typedef constraints::FunctionNotDefinedForThisValue noSolution;
+
 inline matrix3_t cross(const vector3_t& u) {
   matrix3_t res;
   res.setZero();
@@ -83,18 +85,80 @@ protected:
 
   virtual void impl_compute(LiegroupElementRef result, vectorIn_t argument) const {
     forwardKinematics(argument);
+    int extraDof = (int) argument.tail(1)[0];
     // pose of the robot root joint
-    Transform3s _0Mr(data_.oMi[rootIdx_]);
+    Transform3s _0Mb(data_.oMf[baseLinkIdx_]);
     // pose of joint1: J2 * F2 * F1^{-1}
     Transform3s joint1Pose(data_.oMi[joint2_->index()] * frame2_ * frame1_.inverse());
     // pose of last joint in robot arm base_link
-    Transform3s Minput(_0Mr.inverse() * joint1Pose);
-    hppDout(info, "_0Mr=" << _0Mr);
+    Transform3s Minput(_0Mb.inverse() * joint1Pose);
+    hppDout(info, "_0Mb=" << _0Mb);
     hppDout(info, "joint1Pose=" << joint1Pose);
     hppDout(info, "Minput=" << Minput);
+    // Get joint limits
+    int joint1Iq = robot_->model().joints[joint1_->index()].idx_q();
+    double q1_min = robot_->model().lowerPositionLimit[joint1Iq - 6+1];
+    double q2_min = robot_->model().lowerPositionLimit[joint1Iq - 6+2];
+    double q3_min = robot_->model().lowerPositionLimit[joint1Iq - 6+3];
+    double q4_min = robot_->model().lowerPositionLimit[joint1Iq - 6+4];
+    double q5_min = robot_->model().lowerPositionLimit[joint1Iq - 6+5];
+    double q6_min = robot_->model().lowerPositionLimit[joint1Iq - 6+6];
+    double q1_max = robot_->model().upperPositionLimit[joint1Iq - 6+1];
+    double q2_max = robot_->model().upperPositionLimit[joint1Iq - 6+2];
+    double q3_max = robot_->model().upperPositionLimit[joint1Iq - 6+3];
+    double q4_max = robot_->model().upperPositionLimit[joint1Iq - 6+4];
+    double q5_max = robot_->model().upperPositionLimit[joint1Iq - 6+5];
+    double q6_max = robot_->model().upperPositionLimit[joint1Iq - 6+6];
+    hppDout(info, "joint1Iq=" << joint1Iq);
+    hppDout(info, "q1_min=" << q1_min);
+    hppDout(info, "q2_min=" << q2_min);
+    hppDout(info, "q3_min=" << q3_min);
+    hppDout(info, "q4_min=" << q4_min);
+    hppDout(info, "q5_min=" << q5_min);
+    hppDout(info, "q6_min=" << q6_min);
+    hppDout(info, "q1_max=" << q1_max);
+    hppDout(info, "q2_max=" << q2_max);
+    hppDout(info, "q3_max=" << q3_max);
+    hppDout(info, "q4_max=" << q4_max);
+    hppDout(info, "q5_max=" << q5_max);
+    hppDout(info, "q6_max=" << q6_max);
+    // Pose of center of joint5 in arm base link
     // Compute inverse kinematics here
 
-    result.vector().setZero();
+    double x = Minput.translation()(0);
+    double y = Minput.translation()(1);
+    double z = Minput.translation()(2);
+
+    double r11 = Minput.rotation()(0,0);
+    double r12 = Minput.rotation()(0,1);
+    double r13 = Minput.rotation()(0,2);
+    double r21 = Minput.rotation()(1,0);
+    double r22 = Minput.rotation()(1,1);
+    double r23 = Minput.rotation()(1,2);
+    double r31 = Minput.rotation()(2,0);
+    double r32 = Minput.rotation()(2,1);
+    double r33 = Minput.rotation()(2,2);
+
+    double r1 = 0.478;
+    double r2 = 0.050;
+    double r3 = 0.050;
+    double r4 = 0.425;
+    double r5 = 0.425;
+    double r6 = 0.1;
+
+#if 0
+    // In case the solution for a given extraDof value is not defined:
+    throw FunctionNotDefinedForThisValue();
+    result.vector()[0] = std::atan2(y,x);
+    result.vector()[1] = x=asin(x/sqrt((r4+cos(result.vector()[2]))**2+(sin(result.vector()[2])*r5)**2);
+    result.vector()[2] = acos((x**2+(z-r1)**2-r4**2-r**5)/2*r4*r5);
+    result.vector()[4] = acos(cos(result.vector()[0] ;
+    result.vector()[4] = 0;
+    result.vector()[5] = 0;
+
+#else
+				  result.vector().setZero();
+#endif
   }
   virtual void impl_jacobian(matrixOut_t jacobian, vectorIn_t arg) const {
     forwardKinematics(arg);
@@ -140,7 +204,8 @@ private:
       inConf_.lview(q_) = arg;
       robot_->currentConfiguration(q_);
     }
-    robot_->computeForwardKinematics(pinocchio::JOINT_POSITION & pinocchio::JACOBIAN);
+    robot_->computeForwardKinematics(pinocchio::JOINT_POSITION | pinocchio::JACOBIAN);
+    robot_->computeFramesForwardKinematics();
   }
 
   DevicePtr_t robot_;
