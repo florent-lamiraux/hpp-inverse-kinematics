@@ -49,6 +49,7 @@
 using hpp::constraints::solver::BySubstitution;
 using hpp::constraints::Explicit;
 using hpp::constraints::ExplicitPtr_t;
+typedef hpp::constraints::solver::HierarchicalIterative::Status Status;
 using hpp::constraints::ImplicitPtr_t;
 using hpp::constraints::Quaternion_t;
 
@@ -62,6 +63,7 @@ using hpp::manipulation::DevicePtr_t;
 using hpp::manipulation::Handle;
 using hpp::manipulation::HandlePtr_t;
 
+using hpp::pinocchio::Configuration_t;
 using hpp::pinocchio::FrameIndex;
 using hpp::pinocchio::Gripper;
 using hpp::pinocchio::GripperPtr_t;
@@ -151,6 +153,12 @@ BOOST_AUTO_TEST_CASE(exact_inverse_kinematics) {
   hpp::pinocchio::DevicePtr_t robot2(robot);
   GaussianShooterPtr_t shooter(GaussianShooter::create(robot2));
   assert(shooter);
+  // Set center of shooter close to a solution
+  vector_t q0(robot2->configSize());
+  q0 << 0, 0, 0, 0, 0, 0, 1, -2.9591389915981905, 0.6768423750582477, 1.2031154818382692,
+    1.6268750988610332, -1.7445144810260669, -1.2567444407594053, -0.7000000000000001,
+    -3.0531133177191805e-16, -0.1, 0.0, 0.0, 0.7071067811865476, 0.7071067811865475, 0;
+  shooter->center(q0);
   vector_t sigma(robot->numberDof());
   sigma.fill(1.);
   sigma.segment(6, 6).fill(0.);
@@ -165,6 +173,18 @@ BOOST_AUTO_TEST_CASE(exact_inverse_kinematics) {
   std::cout << "Solver:" << std::endl << solver << std::endl;
   // Shoot random poses of part and robot base, compute exact inverse kinematics and on success,
   // Check that constraint error of implicit formulation is small.
+  size_type nSuccess = 0;
   for(size_type i=0; i<1000; ++i) {
+    Configuration_t q = shooter->shoot();
+    // Try all possible inverse kinematics solutions
+    for (size_type j=0; j<16; ++j) {
+      q.tail(1)[0] = j;
+      Status status = solver.solve(q);
+      if(status == hpp::constraints::solver::HierarchicalIterative::SUCCESS) {
+        ++nSuccess;
+        BOOST_CHECK(solver.isSatisfied(q));
+      }
+    }
   }
+  BOOST_CHECK(nSuccess > 100);
 }
