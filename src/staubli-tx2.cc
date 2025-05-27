@@ -132,9 +132,16 @@ protected:
     // Pose of center of joint5 in arm base link
     // Compute inverse kinematics here
 
-    double x = Minput.translation()(0);
-    double y = Minput.translation()(1);
-    double z = Minput.translation()(2);
+
+    Transform3s _5t6;
+    _5t6.rotation() = Eigen::Matrix3d::Identity();
+    _5t6.translation() = Eigen::Vector3d(0, 0, r6); // décalage le long de z
+
+
+    Transform3s _0t5(Minput * _5t6.inverse()); // à corriger
+    double x = _0t5.translation()(0);
+    double y = _0t5.translation()(1);
+    double z = _0t5.translation()(2);
 
     double r11 = Minput.rotation()(0,0);
     double r12 = Minput.rotation()(0,1);
@@ -153,15 +160,31 @@ protected:
     double r5 = 0.425;
     double r6 = 0.1;
 
+    // intermediates computation (attention faut changer ces calculs de places).;
+    double A = r4 + cos(result.vector()[2])*r5;
+    double B = sin(result.vecotr()[2])*r5;
+    double R = sqrt(A.pow(2)+B.pow(2));
+    double phi = std::atan2(B,A);
+
+    double s1= sin(result.vector()[0]);
+    double c1 = cos(result.vector()[0]);
+    double s23 = sin(result.vector()[1] + result.vector()[2]);
+    double c23 = cos(result.vector()[1] + result.vector()[2]);
+
+
+    // d'après chat gpt :
+
+
+
 #if 0
     // In case the solution for a given extraDof value is not defined:
     throw FunctionNotDefinedForThisValue();
     result.vector()[0] = std::atan2(y,x);
-    result.vector()[1] = x=asin(x/sqrt((r4+cos(result.vector()[2]))**2+(sin(result.vector()[2])*r5)**2);
-    result.vector()[2] = acos((x**2+(z-r1)**2-r4**2-r**5)/2*r4*r5);
-    result.vector()[4] = acos(cos(result.vector()[0] ;
-    result.vector()[4] = 0;
-    result.vector()[5] = 0;
+    result.vector()[1] = x=asin(x/R)-phi;
+    result.vector()[2] = acos((x.pow(2)+(z-r1).pow(2)-r4.pow(2)-r.pow(5))/2*r4*r5);
+    result.vector()[4] = acos((-s1*r13+c1*r23)/sin(result.vector()[4]) ;
+    result.vector()[4] = acos(c1*s23*r13+s1*s23*r23+c23*r33);
+    result.vector()[5] = asin((c1*s23*r12+s1*s23*r22+c23*r32)/sin(result.vector()[4]));
 
 #else
 				  result.vector().setZero();
