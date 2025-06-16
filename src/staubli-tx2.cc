@@ -27,6 +27,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 // DAMAGE.
 
+
 #include <hpp/constraints/explicit.hh>
 #include <hpp/constraints/generic-transformation.hh>
 #include <hpp/constraints/matrix-view.hh>
@@ -42,10 +43,11 @@
 #include <pinocchio/multibody/data.hpp>
 #include <../src/configuration-variables.hh>
 
+
 namespace hpp {
 namespace inverseKinematics {
 
-typedef constraints::FunctionNotDefinedForThisValue noSolution;
+typedef constraints::FunctionNotDefinedForThisValue NoSolution;
 
 inline matrix3_t cross(const vector3_t& u) {
   matrix3_t res;
@@ -117,28 +119,24 @@ protected:
     double q5_max = robot_->model().upperPositionLimit[joint1Iq - 6+5];
     double q6_max = robot_->model().upperPositionLimit[joint1Iq - 6+6];
     hppDout(info, "joint1Iq=" << joint1Iq);
-    hppDout(info, "q1_min=" << q1_min);
-    hppDout(info, "q2_min=" << q2_min);
-    hppDout(info, "q3_min=" << q3_min);
-    hppDout(info, "q4_min=" << q4_min);
-    hppDout(info, "q5_min=" << q5_min);
-    hppDout(info, "q6_min=" << q6_min);
-    hppDout(info, "q1_max=" << q1_max);
-    hppDout(info, "q2_max=" << q2_max);
-    hppDout(info, "q3_max=" << q3_max);
-    hppDout(info, "q4_max=" << q4_max);
-    hppDout(info, "q5_max=" << q5_max);
-    hppDout(info, "q6_max=" << q6_max);
     // Pose of center of joint5 in arm base link
     // Compute inverse kinematics here
 
+    constexpr double pi = 3.14159265358979323846;
+
+    double r1 = 0.478;
+    //double r2 = 0.050;
+    //double r3 = 0.050;
+    double r4 = 0.425;
+    double r5 = 0.425;
+    double r6 = 0.1;
 
     Transform3s _5t6;
     _5t6.rotation() = Eigen::Matrix3d::Identity();
     _5t6.translation() = Eigen::Vector3d(0, 0, r6); // décalage le long de z
 
-
     Transform3s _0t5(Minput * _5t6.inverse()); // à corriger
+
     double x = _0t5.translation()(0);
     double y = _0t5.translation()(1);
     double z = _0t5.translation()(2);
@@ -153,43 +151,62 @@ protected:
     double r32 = Minput.rotation()(2,1);
     double r33 = Minput.rotation()(2,2);
 
-    double r1 = 0.478;
-    double r2 = 0.050;
-    double r3 = 0.050;
-    double r4 = 0.425;
-    double r5 = 0.425;
-    double r6 = 0.1;
 
-    // intermediates computation (attention faut changer ces calculs de places).;
-    double A = r4 + cos(result.vector()[2])*r5;
-    double B = sin(result.vecotr()[2])*r5;
-    double R = sqrt(A.pow(2)+B.pow(2));
+
+
+
+
+    // In case the solution for a given extraDof value is not defined:
+    if (false) throw NoSolution();
+    double q1 = std::atan2(y,x);
+
+    double s1= sin(q1);
+    double c1= cos(q1);
+    x = sqrt(x*x+y*y);
+    double q3 = acos((x*x+(z-r1)*(z-r1)-r4*r4-r5*r5)/(2*r4*r5));
+
+    double A = r4 + cos(q3)*r5;
+    double B = sin(q3)*r5;
+    double R = sqrt(A*A+B*B);
     double phi = std::atan2(B,A);
 
-    double s1= sin(result.vector()[0]);
-    double c1 = cos(result.vector()[0]);
-    double s23 = sin(result.vector()[1] + result.vector()[2]);
-    double c23 = cos(result.vector()[1] + result.vector()[2]);
+    double q2 = asin(x/R)-phi;
+    double c2 = cos(q2);
+    double s23 = sin(q2 + q3);
+    double c23 = cos(q2 + q3);
 
 
-    // d'après chat gpt :
+    double q5 = acos(c1*s23*r13+s1*s23*r23+c23*r33);
+    double q4 = acos((-s1*r13+c1*r23)/sin(q5))+pi/2;
+    double q6 = asin((c1*s23*r12+s1*s23*r22+c23*r32)/sin(q5));
 
+    //verifications :
+    double c4= cos(q4);
+    double s4= sin(q4);
+    double c5= cos(q5);
+    double s5= sin(q5);
+    double c6= cos(q6);
+    double s6= sin(q6);
 
+    printf("%d\n",c4*c5*c6+c4*s6);
+    printf("%d\n",r11*c1*c23+r12*s1*s23-r31*s23);
 
-#if 0
-    // In case the solution for a given extraDof value is not defined:
-    throw FunctionNotDefinedForThisValue();
-    result.vector()[0] = std::atan2(y,x);
-    result.vector()[1] = x=asin(x/R)-phi;
-    result.vector()[2] = acos((x.pow(2)+(z-r1).pow(2)-r4.pow(2)-r.pow(5))/2*r4*r5);
-    result.vector()[4] = acos((-s1*r13+c1*r23)/sin(result.vector()[4]) ;
-    result.vector()[4] = acos(c1*s23*r13+s1*s23*r23+c23*r33);
-    result.vector()[5] = asin((c1*s23*r12+s1*s23*r22+c23*r32)/sin(result.vector()[4]));
+    assert(c4*c5*c6+c4*s6==r11*c1*c23+r12*s1*s23-r31*s23);
+    assert(-c4*c5*s6-s4*c6==r12*c1*c23*r22*s1*s23-r32*s23);
+    assert(c4*s5==r13*c1*c23+r23*s1*c23+r23*s1*c23-s23*r33);
 
-#else
-				  result.vector().setZero();
-#endif
+    result.vector()[0] = q1;
+    result.vector()[1] = q2;
+    result.vector()[2] = q3;
+    result.vector()[3] = q4;
+    result.vector()[4] = q5;
+    result.vector()[5] = q6;
+    hppDout(info, "result.vector()=" << result.vector().transpose());
+
   }
+
+
+
   virtual void impl_jacobian(matrixOut_t jacobian, vectorIn_t arg) const {
     forwardKinematics(arg);
     J_.resize(6, inVel_.nbIndices());
