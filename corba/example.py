@@ -55,6 +55,7 @@ factory.setObjects(["part"], [["part/part_top"]], [[]])
 factory.generate()
 cg.initialize()
 
+q0[0] = .28
+q0[1] = .14
 
-
-
+res, q1, err = cg.applyNodeConstraints("staubli/tooltip grasps part/part_top", q0)
