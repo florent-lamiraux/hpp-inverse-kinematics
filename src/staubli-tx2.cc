@@ -28,6 +28,7 @@
 // DAMAGE.
 
 
+#include <cstdlib>
 #include <hpp/constraints/explicit.hh>
 #include <hpp/constraints/generic-transformation.hh>
 #include <hpp/constraints/matrix-view.hh>
@@ -46,6 +47,7 @@
 
 namespace hpp {
 namespace inverseKinematics {
+namespace staubliTx2 {
 
 typedef constraints::FunctionNotDefinedForThisValue NoSolution;
 
@@ -85,7 +87,7 @@ protected:
       robot->model().getFrameId(baseLinkName)),
     rootIdx_(robot->model().frames[baseLinkIdx_].parentJoint),
     inConf_(inConf), inVel_(inVel), outConf_(outConf),
-    data_(robot->model()), nq_(robot->model().nq) {
+    nq_(robot->model().nq), data_(robot->model()) {
     hppDout(info, "baseLinkName=" << baseLinkName);
     hppDout(info, "baseLinkIdx_=" << baseLinkIdx_);
     q_.resize(robot->configSize());
@@ -119,81 +121,146 @@ protected:
     double q5_max = robot_->model().upperPositionLimit[joint1Iq - 6+5];
     double q6_max = robot_->model().upperPositionLimit[joint1Iq - 6+6];
     hppDout(info, "joint1Iq=" << joint1Iq);
-    // Pose of center of joint5 in arm base link
-    // Compute inverse kinematics here
 
+    // Computation of the indices of the solution for each configuration variable
+    std::div_t res = div(extraDof, 4);
+    int i1 = res.rem;
+    int i = (extraDof - i1)/4;
+    res = div(i, 2);
+    int i3 = res.rem;
+    i = (i - i3)/2;
+    res = div(i, 2);
+    int i5 = res.rem;
+    i = (i - i5)/2;
+    res = div(i, 3);
+    int i4 = res.rem;
+    int i6 = res.quot;
+    hppDout(info, "extraDof=" << extraDof);
+    hppDout(info, "i1=" << i1);
+    hppDout(info, "i3=" << i3);
+    hppDout(info, "i5=" << i5);
+    hppDout(info, "i4=" << i4);
+    hppDout(info, "i6=" << i6);
+    
     constexpr double pi = 3.14159265358979323846;
 
+    double q1, q2, q3, q4, q5, q6;
+
     double r1 = 0.478;
-    //double r2 = 0.050;
-    //double r3 = 0.050;
+    double r2 = 0.050;
+    double r3 = 0.050;
     double r4 = 0.425;
     double r5 = 0.425;
     double r6 = 0.1;
 
-    Transform3s _5t6;
-    _5t6.rotation() = Eigen::Matrix3d::Identity();
-    _5t6.translation() = Eigen::Vector3d(0, 0, r6); // décalage le long de z
+    vector3_t offset; offset << 0, 0, -r6;
+    vector3_t concurrentPoint = Minput.act(offset);
 
-    Transform3s _0t5(Minput * _5t6.inverse()); // à corriger
+    hppDout(info, "concurrentPoint = " << concurrentPoint.transpose());
+    double X = concurrentPoint(0);
+    double Y = concurrentPoint(1);
+    double Z = concurrentPoint(2);
 
-    double x = _0t5.translation()(0);
-    double y = _0t5.translation()(1);
-    double z = _0t5.translation()(2);
+    double rho = sqrt(X*X+Y*Y);
+    if (rho < r3) throw NoSolution();
+    double theta = atan2(Y, X);
 
-    double r11 = Minput.rotation()(0,0);
-    double r12 = Minput.rotation()(0,1);
-    double r13 = Minput.rotation()(0,2);
-    double r21 = Minput.rotation()(1,0);
-    double r22 = Minput.rotation()(1,1);
-    double r23 = Minput.rotation()(1,2);
-    double r31 = Minput.rotation()(2,0);
-    double r32 = Minput.rotation()(2,1);
-    double r33 = Minput.rotation()(2,2);
+    switch (i1) {
+    case 0:
+      q1 = theta - asin(r3/rho);
+      break;
+    case 1:
+      q1 = theta - asin(r3/rho) + 2*pi;
+      break;
+    case 2:
+      q1 = theta + pi + asin(r3/rho);
+      break;
+    case 3:
+      q1 = theta - pi + asin(r3/rho);
+      break;
+    default:
+      abort();
+    }
+    if ((q1_min > q1) || (q1 > q1_max)) throw NoSolution();
+    double c1 = cos(q1), s1 = sin(q1);
+    double x = c1*X + s1*Y;
 
+    switch(i3) {
+    case 0:
+      q3 = acos(((x-r2)*(x-r2) + (Z-r1)*(Z-r1) - r4*r4 - r5*r5)/(2*r4*r5));
+      break;
+    case 1:
+      q3 = -acos(((x-r2)*(x-r2) + (Z-r1)*(Z-r1) - r4*r4 - r5*r5)/(2*r4*r5));
+      break;
+    default:
+      abort();
+    }
+    if (std::isnan(q3) || (q3_min > q3) || (q3 > q3_max)) throw NoSolution();
+    double c3 = cos(q3), s3 = sin(q3);
 
+    q2 = atan2((r5*c3+r4)*(x-r2)-r5*s3*(Z-r1),r5*s3*(x-r2)+(r5*c3+r4)*(Z-r1));
+    if ((q2_min > q2) || (q2 > q2_max)) throw NoSolution();
+    double c2 = cos(q2), s2 = sin(q2);
 
+    // assert(fabs(r5*c1*s23 - r3*s1 + r4*c1*s2 + r2*c1 - X) < 1e-8);
+    // assert(fabs(r5*s1*s23 + r3*c1 + r4*s1*s2 + r2*s1 - Y) < 1e-8);
+    assert(fabs(r5*(c2*c3 - s2*s3) + r4*c2 + r1 - Z) < 1e-8);
+    assert(fabs(r5*(s2*c3 + c2*s3) + r4*s2 + r2 - x) < 1e-8);
+    assert(fabs(c1*Y - s1*X-r3) < 1e-8);
+    assert(fabs(X - rho*cos(theta)) < 1e-8);
+    assert(fabs(Y - rho*sin(theta)) < 1e-8);
+    assert(fabs(r3 - rho*(c1*sin(theta)-cos(theta)*s1)) < 1e-8);
+    assert(fabs(sin(theta - q1) - r3/rho) < 1e-8);
+    matrix3_t R03;
+    R03 <<
+      c1*c2*c3 - c1*s2*s3, -s1, c1*c2*s3 + c1*s2*c3,
+      s1*c2*c3 - s1*s2*s3,  c1, s1*c2*s3 + s1*s2*c3,
+      -s2*c3 - c2*s3,        0, -s2*s3 + c2*c3;
 
+    matrix3_t R36 = R03.transpose() * Minput.rotation();
 
+    switch(i5) {
+    case 0:
+      q5 = acos(R36(2,2));
+      break;
+    case 1:
+      q5 = -acos(R36(2,2));
+      break;
+    default:
+      abort();
+    }
+    if ((std::isnan(q5)) || (q5_min > q5) || (q5 > q5_max)) throw NoSolution();
+    double s5 = sin(q5);
+    if (fabs(s5) < 1e-6) throw NoSolution(); // Singularity
+    switch(i4) {
+    case 0:
+      q4 = atan2(R36(1,2)/s5, R36(0,2)/s5) - 2*pi;
+      break;
+    case 1:
+      q4 = atan2(R36(1,2)/s5, R36(0,2)/s5);
+      break;
+    case 2:
+      q4 = atan2(R36(1,2)/s5, R36(0,2)/s5) + 2*pi;
+      break;
+    default:
+      abort();
+    }
+    if ((q4_min > q4) || (q4 > q4_max)) throw NoSolution();
 
-    // In case the solution for a given extraDof value is not defined:
-    if (false) throw NoSolution();
-    double q1 = std::atan2(y,x);
-
-    double s1= sin(q1);
-    double c1= cos(q1);
-    x = sqrt(x*x+y*y);
-    double q3 = acos((x*x+(z-r1)*(z-r1)-r4*r4-r5*r5)/(2*r4*r5));
-
-    double A = r4 + cos(q3)*r5;
-    double B = sin(q3)*r5;
-    double R = sqrt(A*A+B*B);
-    double phi = std::atan2(B,A);
-
-    double q2 = asin(x/R)-phi;
-    double c2 = cos(q2);
-    double s23 = sin(q2 + q3);
-    double c23 = cos(q2 + q3);
-
-
-    double q5 = acos(c1*s23*r13+s1*s23*r23+c23*r33);
-    double q4 = acos((-s1*r13+c1*r23)/sin(q5))+pi/2;
-    double q6 = asin((c1*s23*r12+s1*s23*r22+c23*r32)/sin(q5));
-
-    //verifications :
-    double c4= cos(q4);
-    double s4= sin(q4);
-    double c5= cos(q5);
-    double s5= sin(q5);
-    double c6= cos(q6);
-    double s6= sin(q6);
-
-    printf("%d\n",c4*c5*c6+c4*s6);
-    printf("%d\n",r11*c1*c23+r12*s1*s23-r31*s23);
-
-    assert(c4*c5*c6+c4*s6==r11*c1*c23+r12*s1*s23-r31*s23);
-    assert(-c4*c5*s6-s4*c6==r12*c1*c23*r22*s1*s23-r32*s23);
-    assert(c4*s5==r13*c1*c23+r23*s1*c23+r23*s1*c23-s23*r33);
+    switch(i6) {
+    case 0:
+      q6 = atan2(R36(2,1)/s5, -R36(2,0)/s5) - 2*pi;
+      break;
+    case 1:
+      q6 = atan2(R36(2,1)/s5, -R36(2,0)/s5);
+      break;
+    case 2:
+      q6 = atan2(R36(2,1)/s5, -R36(2,0)/s5) + 2*pi;
+      break;
+    default:
+      abort();
+    }
+    if ((q6_min > q6) || (q6 > q6_max)) throw NoSolution();
 
     result.vector()[0] = q1;
     result.vector()[1] = q2;
@@ -204,8 +271,6 @@ protected:
     hppDout(info, "result.vector()=" << result.vector().transpose());
 
   }
-
-
 
   virtual void impl_jacobian(matrixOut_t jacobian, vectorIn_t arg) const {
     forwardKinematics(arg);
@@ -269,10 +334,10 @@ private:
   mutable matrix_t J_, J1_, J2_, J2_in_, Jr_, Jr_in_;
 }; // class InverseKinematics
 
-class StaubliTX2 : public constraints::Explicit {
+class Explicit : public constraints::Explicit {
 public:
-  typedef shared_ptr<StaubliTX2> Ptr_t;
-  typedef weak_ptr<StaubliTX2> WkPtr_t;
+  typedef shared_ptr<Explicit> Ptr_t;
+  typedef weak_ptr<Explicit> WkPtr_t;
   /// Copy object and return shared pointer to copy
   virtual ImplicitPtr_t copy() const{ return createCopy(weak_.lock()); }
   /// Create instance and return shared pointer
@@ -294,7 +359,7 @@ public:
       const std::string& name, const DevicePtr_t& robot,
       const JointConstPtr_t& joint1, const JointConstPtr_t& joint2, const Transform3s& frame1,
       const Transform3s& frame2, const std::string& baseLinkName, size_type extraDof) {
-    StaubliTX2* ptr(new StaubliTX2(name, robot, joint1, joint2, frame1, frame2, baseLinkName,
+    Explicit* ptr(new Explicit(name, robot, joint1, joint2, frame1, frame2, baseLinkName,
 				   extraDof));
     Ptr_t shPtr(ptr);
     WkPtr_t wkPtr(shPtr);
@@ -304,7 +369,7 @@ public:
 
 
   static Ptr_t createCopy(const Ptr_t& other) {
-    StaubliTX2* ptr(new StaubliTX2(*other));
+    Explicit* ptr(new Explicit(*other));
     Ptr_t shPtr(ptr);
     WkPtr_t wkPtr(shPtr);
     ptr->init(wkPtr);
@@ -338,13 +403,13 @@ public:
   /// \param frame2 position of a fixed frame in joint 2,
   /// \note if joint1 is 0x0, joint 1 frame is considered to be the global
   ///       frame.
-  StaubliTX2(const std::string& name, const DevicePtr_t& robot,
+  Explicit(const std::string& name, const DevicePtr_t& robot,
 	     const JointConstPtr_t& joint1, const JointConstPtr_t& joint2,
 	     const Transform3s& frame1, const Transform3s& frame2, const std::string& baseLinkName,
 	     size_type extraDof)
-    : Explicit(RelativeTransformationR3xSO3::create(name, robot, joint1, joint2,
-                                                    frame1, frame2,
-                                                    std::vector<bool>(6, true)),
+    : constraints::Explicit(RelativeTransformationR3xSO3::create(name, robot, joint1, joint2,
+								 frame1, frame2,
+								 std::vector<bool>(6, true)),
                InverseKinematics::create(name, robot, joint1, joint2,
 	           frame1, frame2, baseLinkName, inputConfVariables(robot, joint1, joint2,
 								    extraDof),
@@ -375,8 +440,8 @@ public:
 
 
   /// Copy constructor
-  StaubliTX2(const StaubliTX2& other)
-    : Explicit(other),
+  Explicit(const Explicit& other)
+    : constraints::Explicit(other),
       joint1_(other.joint1_),
       joint2_(other.joint2_),
       frame1_(other.frame1_),
@@ -385,7 +450,7 @@ public:
 
   /// Store weak pointer to itself
   void init(WkPtr_t weak) {
-    Explicit::init(weak);
+    constraints::Explicit::init(weak);
     weak_ = weak;
   }
 
@@ -397,7 +462,7 @@ public:
   size_type extraDof_;
   WkPtr_t weak_;
 
-}; // class StaubliTX2
+}; // class Explicit
 
 namespace {
 static const matrix3_t I3 = matrix3_t::Identity();
@@ -421,7 +486,7 @@ ImplicitPtr_t createGrasp(const GripperPtr_t& gripper, const HandleConstPtr_t& h
     n = gripper->name() + "_grasps_" + handle->name() + "_(explicit)";
   }
 
-  return StaubliTX2::create(n, gripper->joint()->robot(), gripper->joint(), handle->joint(),
+  return Explicit::create(n, gripper->joint()->robot(), gripper->joint(), handle->joint(),
       gripper->objectPositionInJoint(), handle->localPosition(), baseLinkName, extraDof);
 }
 /// Create a trivial constraint
@@ -443,8 +508,9 @@ ImplicitPtr_t createPreGrasp(const GripperPtr_t& gripper, const HandleConstPtr_t
                   Transform3s(I3, vector3_t(shift, 0, 0));
   if (n.empty())
     n = "Pregrasp_(explicit)_" + handle->name() + "_" + gripper->name();
-  return StaubliTX2::create(n, gripper->joint()->robot(), gripper->joint(), handle->joint(),
+  return Explicit::create(n, gripper->joint()->robot(), gripper->joint(), handle->joint(),
 			    M, handle->localPosition(), baseLinkName, extraDof);
 }
+} // namespace staubliTx2
 } // namespace inverseKinematics
 } // namespace hpp

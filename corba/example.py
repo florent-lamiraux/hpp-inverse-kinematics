@@ -1,4 +1,6 @@
 import os
+import numpy as np
+from eigenpy import Quaternion
 from math import sqrt, cos, sin, pi
 from hpp.corbaserver import loadServerPlugin
 from hpp.rostools import process_xacro, retrieve_resource
@@ -55,6 +57,7 @@ factory.setObjects(["part"], [["part/part_top"]], [[]])
 factory.generate()
 cg.initialize()
 
+q0[0] = .28
+q0[1] = .14
 
-
-
+res, q1, err = cg.applyNodeConstraints("staubli/tooltip grasps part/part_top", q0)

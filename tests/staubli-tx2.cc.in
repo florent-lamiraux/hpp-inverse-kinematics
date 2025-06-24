@@ -30,16 +30,19 @@
 #define BOOST_TEST_MODULE staubli_tx2
 #include <boost/test/included/unit_test.hpp>
 
+#include <pinocchio/algorithm/kinematics.hpp>
 #include <pinocchio/multibody/model.hpp>
 
 #include <hpp/constraints/implicit.hh>
 #include <hpp/constraints/solver/by-substitution.hh>
 
 #include <hpp/core/configuration-shooter/gaussian.hh>
+#include <hpp/core/configuration-shooter/uniform.hh>
 
 #include <hpp/manipulation/device.hh>
 #include <hpp/manipulation/handle.hh>
 
+#include <hpp/pinocchio/configuration.hh>
 #include <hpp/pinocchio/gripper.hh>
 #include <hpp/pinocchio/joint.hh>
 #include <hpp/pinocchio/urdf/util.hh>
@@ -55,8 +58,10 @@ using hpp::constraints::Quaternion_t;
 
 typedef hpp::core::configurationShooter::GaussianPtr_t GaussianShooterPtr_t;
 typedef hpp::core::configurationShooter::Gaussian GaussianShooter;
+typedef hpp::core::configurationShooter::UniformPtr_t UniformShooterPtr_t;
+typedef hpp::core::configurationShooter::Uniform UniformShooter;
 
-using hpp::inverseKinematics::createGrasp;
+using hpp::inverseKinematics::staubliTx2::createGrasp;
 
 using hpp::manipulation::Device;
 using hpp::manipulation::DevicePtr_t;
@@ -77,7 +82,7 @@ using hpp::pinocchio::vector_t;
 using hpp::pinocchio::vector3_t;
 using hpp::pinocchio::vector4_t;
 
-BOOST_AUTO_TEST_CASE(exact_inverse_kinematics) {
+BOOST_AUTO_TEST_CASE(staubli_inverse_kinematics) {
   std::string partBaselink("part/base_link");
   std::string handleName("part/part_top");
   std::string gripperName("staubli/tooltip");
@@ -174,15 +179,16 @@ BOOST_AUTO_TEST_CASE(exact_inverse_kinematics) {
   // Shoot random poses of part and robot base, compute exact inverse kinematics and on success,
   // Check that constraint error of implicit formulation is small.
   size_type nSuccess = 0;
+  vector_t error; error.resize(6);
   for(size_type i=0; i<1000; ++i) {
     Configuration_t q = shooter->shoot();
     // Try all possible inverse kinematics solutions
-    for (size_type j=0; j<16; ++j) {
+    for (size_type j=0; j<144; ++j) {
       q.tail(1)[0] = j;
       Status status = solver.solve(q);
       if(status == hpp::constraints::solver::HierarchicalIterative::SUCCESS) {
         ++nSuccess;
-        BOOST_CHECK(solver.isSatisfied(q));
+        BOOST_CHECK(solver.isSatisfied(q, 1e-9));
       }
     }
   }

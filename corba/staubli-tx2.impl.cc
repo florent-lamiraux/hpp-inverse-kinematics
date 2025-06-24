@@ -78,9 +78,10 @@ void StaubliTx2::createGrasp(const char* graspName, const char* gripperName, con
     if (!h) throw std::runtime_error("No handle with name " + std::string(handleName) + ".");
     const std::string cname = std::string(graspName) + "/complement";
     const std::string bname = std::string(graspName) + "/hold";
-    ImplicitPtr_t constraint(hpp::inverseKinematics::createGrasp(g, h, (size_type) extraDof,
-								 baseLinkName, graspName));
-    ImplicitPtr_t complement(hpp::inverseKinematics::createGraspComplement(g, h, cname));
+    ImplicitPtr_t constraint(hpp::inverseKinematics::staubliTx2::createGrasp
+			     (g, h, (size_type) extraDof, baseLinkName, graspName));
+    ImplicitPtr_t complement(hpp::inverseKinematics::staubliTx2::createGraspComplement
+			     (g, h, cname));
     ImplicitPtr_t both(constraint);
     problemSolver()->addNumericalConstraint(graspName, constraint);
     problemSolver()->addNumericalConstraint(cname, complement);
@@ -104,8 +105,8 @@ void StaubliTx2::createPreGrasp(const char* pregraspName, const char* gripperNam
     if (!h) throw std::runtime_error("No handle with name " + std::string(handleName) + ".");
 
     value_type c = h->clearance() + g->clearance();
-    ImplicitPtr_t constraint(hpp::inverseKinematics::createPreGrasp(g, h, (size_type) extraDof, c,
-								    baseLinkName, pregraspName));
+    ImplicitPtr_t constraint(hpp::inverseKinematics::staubliTx2::createPreGrasp
+			     (g, h, (size_type) extraDof, c, baseLinkName, pregraspName));
     problemSolver()->addNumericalConstraint(pregraspName, constraint);
   } catch (const std::exception& exc){
     throw Error(exc.what());

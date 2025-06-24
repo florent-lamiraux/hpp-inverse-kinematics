@@ -35,12 +35,12 @@ module hpp {
   module corbaserver {
     module inverse_kinematics {
       interface StaubliTx2 {
-        /// Create grasp constraints between robot gripper and object handle
-	///
+        /// Create grasp constraints between robot gripper and object handle.
+
 	/// Creates two contraints between a handle and a gripper.
-	/// \li The first constraint named "${graspName}" is an exact inverse kinematics explicit
+	/// \li The first constraint named graspName" is an exact inverse kinematics explicit
 	///     constraint,
-	/// \li the second constraint named "${graspName}/complement" is an constraint with output
+	/// \li the second constraint named graspName + "/complement" is a constraint with output
 	///     of dimension 0 (void constraint)
 	/// 
 	/// \param graspName prefix of the constraint names for storing in

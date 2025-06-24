@@ -60,9 +60,10 @@ respect to the input configuration variables:
 Note that the input variables include a extra degree of freedom that is interpreted as an integer to select among the various solutions of the inverse kinematics.
 
 \begin{figure}[h]
-  \centering
+  \center
   \graphicspath{{./figures/}}
-  \includegraphics[width=0.5\textwidth]{staubli-TX90-schematic.pdf}
+  \input{figures/staubli-TX90-schematic.pdf_tex}
+  \caption{Kinematic diagram of the Stäubli TX2-90 robot.}
 \end{figure}
 For the Staubli TX90, we have the following cotation in meters:
 \begin{align*}
@@ -151,33 +152,29 @@ T_{5,6} =
 \end{array}
 \]
 
-
-Calculation of  $T_{0,5}$ and $T_{3,6}$ to determinate each configuration expressions, we only use the translation vector to determinate the concurant point. We assume that $sin(q_i)=s_i$  for each i between 1 and 6. \\
+Let us notice that the last three axes are concurrent. The concurrent point is the center of axis 5 and can be obtained by applying $T_{0,6}$ to vector $\left(0\ 0\ -r_6\right)$.
+Calculation of  $T_{0,5}$ and $T_{3,6}$ are given below. We denote $sin(q_i)=s_i$  for each $i$ between 1 and 6.
 \begin{align*}
-T_{0,3} = T_{0,1} T_{1,2} T_{2,3} T_{3,4} T_{4,5} =
+T_{0,5} = T_{0,1} T_{1,2} T_{2,3} T_{3,4} T_{4,5} =
 \begin{bmatrix}
-  X & X & X &r_5c_1s_{2+3}-r_3s_1+r_4c_1s_2+c_1r_2\\
+  X & X & X &r_5c_1s_{2+3}-r_3s_1+r_4c_1s_2+r_2c_1\\
   X & X & X & r_5s_1s_{2+3}+r_3c_1+r_4s_1s_2+r_2s_1 \\
   X & X & X & r_5c_{2+3}+r_4c_2+r_1 \\
   0 & 0 & 0 & 1 \\
 \end{bmatrix}
 \end{align*}
 
-\[
-T_{3,6} = T_{3,4} T_{4,5} T_{5,6}= \\
-\begin{bmatrix}
-  c_4c_5c_6+s_4s_6 & -c_4c_5s_6-s_4c_6 & c_4s_5 & r_6c_4s_5 \\
-  s_4c_5c_6-c_4s_6 & -s_4c_5s_6+c_4c_6 & s_4s_5 & r_6s_4s_5 \\
-  -s_5c_6 & s_5s_6 & c_5 & r_6c_5 + r_5 \\
-  0 & 0 & 0 & 1 \\
-\end{bmatrix}
-\]
+\subsubsection*{Computation of $q_1$}
 
-In order to know the configuration for the position of the concourant point, we need to use the translation vector in $T_{0,5}$ matrix and trigonometrix tools.
-
-For $q_1$, with a manipulation of the plane described by the two other articulation we find:
-
-\begin{equation}
+Let us rewrite
+\begin{align*}
+  X&=r_5c_1s_{2+3}-r_3s_1+r_4c_1s_2+r_2c_1\\
+  Y&=r_5s_1s_{2+3}+r_3c_1+r_4s_1s_2+r_2s_1\\
+  Z&=r_5c_{2+3}+r_4c_2+r_1
+\end{align*}
+the coordinates of the translation part of $T_{0,5}$. Importantly, this point is the intersection of the last 3 axes.
+Given the geometry of the robot, we search $(X,Y)$ in the form:
+\begin{equation}\label{eq:XY}
   \begin{bmatrix}
     c1 & -s1\\
     s_1 & c_1\\
@@ -191,152 +188,249 @@ For $q_1$, with a manipulation of the plane described by the two other articulat
     c_1x-s_1r_3\\
     s_1x+c_1r_3\\
   \end{bmatrix}
+  =
+  \begin{bmatrix}
+    X\\Y
+  \end{bmatrix}
 \end{equation}
 
-we identify with translation matrix from $T_{0,5}$:
+Replacing $X$ and $Y$ by their expressions, we get:
 \begin{align*}
   c_1x-\cancel{s_1r_3}&=r_5c_1s_{2+3}-\cancel{s_1r_3} +c_1s_2r_4+ c_1r_2\\
   s_1x+\cancel{c_1r_3}&=r_5s_1s_{2+3}+\cancel{c_1r_3}+s_1s_2r_4+s_1r_2\\
 \end{align*}
 we simplify by $c_1$ and $s_1$ :
-\begin{equation}
+\begin{equation}\label{eq:x}
   x=r_5s_{2+3}+s_2r_4+r_2
 \end{equation}
-
-the x we use correspond to the horizontal displacement in the plane of rotation $q_1$, so we want to have x et y from the root frame :
+We need to determine $q_1$ from these expressions. 
+the $x$ and $y$ components of the translation part of $T_{0,5}$. Multiplying the first line of~(\ref{eq:XY}) by $s_1$ and the second line by $c_1$, we get
 \begin{align*}
-  x'&=c_1x\\
-  y'&=s_1x\\
+  s_1 c_1 x - s_1^2 r_3 &= s_1 X\\
+  s_1 c_1 x + c_1^2 r_3 &= c_1 Y
+\end{align*}
+Substracting the second line to the first one, we get
+$$
+r_3 = c_1 Y - s_1 X.
+$$
+Let us express $(X,Y)$ in polar coordinates:
+\begin{align}\label{eq:polar coordinates}
+  X = \rho \cos\theta\\
+  Y = \rho \sin\theta \\
+  \label{eq:theta bounds}
+  \rho \geq 0, -\pi \leq \theta \leq \pi.
+\end{align}
+We get
+$$
+r_3 = \rho(\cos q_1 \sin\theta - \sin q_1 \cos\theta) = \rho\sin(\theta - q_1).
+$$
+If $\rho < r_3$, then there is no solution. Otherwise,
+$$
+\sin(\theta - q_1) = \frac{r_3}{\rho}
+$$
+Then
+$$
+\theta - q_1 = \arcsin \frac{r_3}{\rho} + 2k\pi,\ \mbox{or}\ \theta - q_1 = \pi - \arcsin\frac{r_3}{\rho} + 2k\pi, k\in\mathbb{Z}.
+$$
+and
+\begin{align*}
+  q_1 &= \theta - \arcsin \frac{r_3}{\rho} + 2k\pi\ \mbox{or}\\
+  q_1 &= \theta + \pi + \arcsin\frac{r_3}{\rho} + 2k\pi, k\in\mathbb{Z}.
 \end{align*}
 
-We finaly have :
-\begin{align*}
-  x'&=c_1(r_5s_{2+3}+s_2r_4+r_2)\\
-  y'&=s_1(r_5s_{2+3}+s_2r_4+r_2)\\
-\end{align*}
-
-$q_1$ is given by the following expression :
-\[
-q_1=\text{atan2}(y',x')
-\]
-
-on remarque que une autre solution possible est:
-\[
-q_1=\pi-\text{atan2}(x,y)
-\]
-
-
-For $q_2$ and $q_3$, we consider the plane of rotation defined by $q_1$.
-We pose $z'=z-r_1$.
-With al-kashi formula we can write that :
-\begin{align*}
-  \sqrt{x^2+z'^2}^2&=r_4^2+r_5^2-2r_4r_5\cos(\pi-q_3)\\
-  x²+z'²&=r_4^2+r_5^2+2r_4r_5cos(q_3)\\
-  \cos(q_3)&= \frac{x^2+z'^2-r_4^2-r_5^2}{2r_4r_5}\\
-  q_3&=\arccos(\frac{x^2+(z-r_1)^2-r_4^2-r_5^2}{2r_4r_5})\\
-\end{align*}
-for $q_2$:
-\begin{equation}
-\begin{cases}
-  x&=\sin(q_2)r_4+r_5\sin(q_2+q_3)\\
-  z&=\cos(q_2)r_4+\cos(q_2+q_3)r_5 + r_1\\
-\end{cases}
-\end{equation}
-\begin{equation}
-\begin{cases}
-  x&=\sin(q_2)r_4+r_5(\sin(q_2)\cos(q_3)+\sin(q_3)\cos(q_2))\\
-  z'&=\cos(q_2)r_4+r_5(\cos(q_3)\cos(q_2)-\sin(q_3)\sin(q_2))\\
-\end{cases}
-\end{equation}
-
-
-
-we define:
-\begin{align*}
-  A&= r_4+\cos(q_3)r_5\\
-  B&= \sin(q_3)r_5 \\
-  R&=\sqrt{A^2+B^2}\\
-  \phi&=\text{atan2}(B,A)\\
-\end{align*}
-
-Using the auxiliary angle technique (à preciser?) we find :
+\paragraph{Possible solutions.}
 
 \begin{align*}
-  x&=R\sin(q_2+\phi)\\
-  q_2&=\arcsin(\frac{x}{R})-\phi\\
-  \text{or}\\
-  q_2&=\pi-\arcsin(\frac{x}{R})-\phi\\
+  &0 < \arcsin \frac{r_3}{\rho} \leq \frac{\pi}{2}
+\end{align*}
+so from~(\ref{eq:theta bounds}),
+\begin{align*}
+  -\frac{3\pi}{2} &\leq \theta - \arcsin \frac{r_3}{\rho} \leq \pi\\
+   0 & \leq \theta + \pi + \arcsin\frac{r_3}{\rho} \leq 2\pi + \frac{\pi}{2}
 \end{align*}
 
-In order to computate the orientation of the terminal organ, we are going to use rotational matrix from $T_{0,3}$,$T_{0,6}$ and $T_{3,6}$  resulting in an equation system that we will solve.
-We start from the following expression:
-\begin{equation}
-  R_{0,3}^TR_{0,6}=R_{3,6}
+As $-\pi < q_1 < \pi$, there is possibly 4 solutions:
+\begin{align*}
+  q_1 &= \theta - \arcsin \frac{r_3}{\rho} \\
+  q_1 &= \theta - \arcsin \frac{r_3}{\rho} + 2\pi\\
+  q_1 &= \theta + \pi + \arcsin\frac{r_3}{\rho} \\
+  q_1 &= \theta - \pi + \arcsin\frac{r_3}{\rho}
+\end{align*}
+
+\subsubsection*{Computation of $q_3$}
+
+\begin{figure}[h]
+  \begin{center}
+    \def\svgwidth {.6\linewidth}
+    \graphicspath{{./figures/}}
+    \input{figures/q2-q3.pdf_tex}
+  \end{center}
+  \caption{From the lengths of each side of triangle ABC, we can compute $\theta_3$}
+  \label{fig:triangle}
+\end{figure}
+
+From $q_1$  by inverting~(\ref{eq:XY}), we get the value of $x$:
+$$
+x = c_1 X + s_1 Y.
+$$
+Using~(\ref{eq:x}), we can write
+\begin{align}
+  \label{eq:x:1}
+  x &= r_5\sin(q_{2}+q_{3})+r_4\sin q_2+r_2 \\
+  \label{eq:Z:1}
+  Z &= r_5\cos(q_{2}+q_{3})+r_4\cos q_2+r_1
+\end{align}
+These equations define a triangle denoted ABC in Figure~\ref{fig:triangle}. Thus we can write
+\begin{align*}
+  \|\vec{AC}\|^2 &= \|\vec{AB}+\vec{BC}\|^2 = \|\vec{AB}\|^2 + \|\vec{BC}\|^2 + 2\vec{AB}.\vec{BC}\\
+  (x-r_2)^2 + (Z-r_1)^2 &= r_4^2 + r_5^2 + 2r_4r_5\cos q_3 \\
+  \cos q_3 &= \frac{(x-r_2)^2 + (Z-r_1)^2 - r_4^2 - r_5^2}{2r_4r_5}
+\end{align*}
+If the right hand side of the latter is bigger than 1, there is no solution. Otherwise
+\begin{equation}\label{eq:q3}
+  q_3 = \pm \arccos \frac{(x-r_2)^2 + (Z-r_1)^2 - r_4^2 - r_5^2}{2r_4r_5} + 2k\pi, k\in\mathbb{Z}
 \end{equation}
-We define :
 
-\begin{equation}
-  R_{0,6}=
-  \begin{bmatrix}
-    R_{11} & R_{12} & R_{13}\\
-    R_{21} & R_{22} & R_{23}\\
-    R_{31} & R_{32} & R_{33}\\
-  \end{bmatrix}
-\end{equation}
+\paragraph{Possible solutions.}
 
-Where the $R_{i,j}$ coefficient are known.
+$$
+0 \leq \arccos \frac{(x-r_2)^2 + (Z-r_1)^2 - r_4^2 - r_5^2}{2r_4r_5} \leq \pi
+$$
+and $-\pi < q_3 < \pi$. Thus, there are 2 solutions:
+\begin{align*}
+  q_3 &= + \arccos \frac{(x-r_2)^2 + (Z-r_1)^2 - r_4^2 - r_5^2}{2r_4r_5}\\
+  q_3 &= - \arccos \frac{(x-r_2)^2 + (Z-r_1)^2 - r_4^2 - r_5^2}{2r_4r_5}
+\end{align*}
+\subsubsection*{Computation of $q_2$}
 
-\begin{equation}
-  \begin{bmatrix}
-    R_{11}c_1c_{2+3}+R_{12}s_1c_{2+3}-s_{2+3}R_{31} & R_{12}c_1c_{2+3}+R_{22}s_1c_{2+3}-R_{32}s_{2+3} & R_{13}c_1c_{2+3}+R_{23}s_1c_{2+3}-R_{33}s_{2+3}\\
-    -R_{11}s_1+R_{21}c_1 & -R{12}s_1+R_{22}c_1 & -R_{13}s_1+R_{23}c_1\\
-    R_{11}c_1s_{2+3}+R_{21}s_1s_{2+3}+R_{31}c_{2+3} & R_{12}c_1s_{2+3}+R_{22}s_1s_{2+3}+R_{32}c_{2+3} & R_{13}c_1c_{2+3}+R_{23}s_1s_{2+3}R_{23}+R_{33}c_{2+3}\\
-  \end{bmatrix}
-\end{equation}
+If we develop~(\ref{eq:x:1})-(\ref{eq:Z:1}), we get
+\begin{align*}
+  x - r_2 &= r_5(\sin q_2 \cos q_3 + \sin q_3 \cos q_2) + r_4 \sin q_2 \\
+  Z -r_1 &= r_5(\cos q_2 \cos q_3 - \sin q_2 \sin q_3) + r_4\cos q_2\\
+  x - r_2 &= r_5\sin q_3 \cos q_2  + (r_5\cos q_3 + r_4)\sin q_2\\
+  Z -r_1 &= (r_5\cos q_3 + r_4)\cos q_2 - r_5\sin q_3\sin q_2
+\end{align*}
+Using Kramer's formula, we have
+\begin{align*}
+  \cos q_2 &= \frac{r_5\sin q_3(x-r_2) + (r_5\cos q_3 + r_4)(Z-r_1)}{r_4^2 + r_5^2 + 2r_4r_5\cos q_3}\\
+  \sin q_2 &= \frac{(r_5\cos q_3 + r_4)(x-r_2)-r_5\sin q_3(Z-r_1)}{r_4^2 + r_5^2 + 2r_4r_5\cos q_3}
+\end{align*}
+As $-\pi < q_2 < \pi$, this system of equations has a unique solution.
 
-this equation gives us the following system :
-\begin{equation}
-\begin{cases}
-  c_4c_5c_6+c_4s_6&=R_{11}c_1c_{2+3}+R_{12}s_1s_{2+3}-R_{31}s_{2+3}\\
-  -c_4c_5s_6-s_4s_6&=R_{12}c_1c_{2+3}+R_{22}s_1s_{2+3}R_{22}-R_{32}s_{2+3}\\
-  c_4s_5&=R_{13}c_1c_{2+3}+R_{23}s_1c_{2+3}-s_{2+3}s_{2+3}R_{33}\\
-  s_4c_5c_6-c_4s_6&=-s_1R_{11}+R_{12}c_1\\
-  -s_4c_5c_6-c_4s_6&=-s_1R_{11}+c_1R_{22}\\
-  s_4s_5&=-s_1R_{13}+c_1R_{23}\\
-  -s_5c_6&=c_1s_{2+3}R_{11}+R_{21}s_1s_{2+3}+R_{31}c_{2+3}\\
-  s_5s_6&=c_1s_{2+3}R_{12}+s_1s_{2+3}R_{22}+c_{2+3}R_{32}\\
-  c_5&=c_1s_{2+3}R_{13}+s_1s_{2+3}R_{23}+c_{2+3}R_{33}\\
-\end{cases}
-\end{equation}
-with the last row we can write:
-\begin{equation*}
-  \boxed{q_5=\arccos(c_1s_{2+3}R_{13}+s_1s_{2+3}R_{23}+c_{2+3}R_{33})}
-  \text{ or }
-  \boxed{q_5=-\arccos(c_1s_{2+3}R_{13}+s_1s_{2+3}R_{23}+c_{2+3}R_{33})}
-\end{equation*}
-with the $8^{th}$ row :
-\begin{equation}
-  s_6=\frac{1}{s_5}(c_1s_{2+3}R_{12}+s_1s_{2+3}R_{22}+c_{2+3}R_{32})
-\end{equation}
-\[
-\boxed{q_6=\arcsin(\frac{1}{s_5}(c_1s_{2+3}R_{12}+s_1s_{2+3}R_{22}+c_{2+3}R_{32}))}\\
-\]
-\text{ or }\\
-\[
-\boxed{q_6=\pi-\arcsin(\frac{1}{s_5}(c_1s_{2+3}R_{12}+s_1s_{2+3}R_{22}+c_{2+3}R_{32}))}\\
-\]
-with the $6^{th}$ row :
-\begin{equation}
-  s_4=\frac{1}{s_5}(-s_1R_{13}+c_1R_{23})
-\end{equation}
-\[
-\boxed{q_4=\arcsin(\frac{1}{s_5}(-s_1R_{13}+c_1R_{23}))}
-\text{ or }
-\boxed{q_4=\pi-arcsin(\frac{1}{s_5}(-s_1R_{13}+c_1R_{23}))}
-\]
+\subsubsection*{Computation of $q_5$}
 
+With the first 3 angles, we can compute the orientation matrix $R_{03}$ of axis 3:
+$$
+R_{0,3} =
+\begin{bmatrix}
+  c_1c_2c_3 - c_1s_2s_3 & -s_1 & c_1c_2s_3 + c_1s_2c_3\\
+  s_1c_2c_3 - s_1s_2s_3 & c_1  & s_1c_2s_3 + s_1s_2c_3 \\
+  -s_2c_3-c_2s_3        & 0   & -s_2s_3 + c_2c_3
+\end{bmatrix}
+$$
+From this matrix, we can compute $R_{3,6}=R_{0,3}^T R_{0,6}$ where $R_{0,6}$ is the orientation of the
+end effector that is given as input. Using the expressions of each axis rotation matrix given at the beginning if this section, we get an expression of $R_{3,6}$ with respect to the last three angles:
+$$
+R \triangleq R_{3,6}=
+\begin{bmatrix}
+  c_4c_5c_6-s_4s_6 & -c_4c_5s_6-s_4c_6 & c_4s_5 \\
+  s_4c_5c_6+c_4s_6 & -s_4c_5s_6+c_4c_6 & s_4s_5 \\
+  -s_5c_6 & s_5s_6 & c_5
+\end{bmatrix}
+$$
+The coefficient of the last row and of the last column enables us to compute $q_5$:
+\begin{align*}
+  q_5 &= \pm \arccos R_{3\,3} + 2k\pi.
+\end{align*}
 
+\paragraph{Possible solutions.}
 
+\begin{align*}
+  0 &\leq \arccos R_{3\,3} \leq \pi
+\end{align*}
+and $-\pi < q_5 < \pi$. Thus, $q_5$ admits at most two solutions:
+\begin{align*}
+  q_5 &= \arccos R_{3\,3}\\
+  q_5 &= -\arccos R_{3\,3}\\
+\end{align*}
+
+\subsubsection*{Computation of $q_4$}
+
+If $s_5\not=0$, we get $q_4$ from  coefficients $R_{1\,3}$ and $R_{2\,3}$:
+\begin{align*}
+  q_4 &= \mbox{arctan2}(\frac{R_{2\,3}}{\sin q_5}, \frac{R_{1\,3}}{\sin q_5}) + 2k\pi,
+\end{align*}
+
+\paragraph{Possible solutions.}
+
+\begin{align*}
+  -\pi \leq \mbox{arctan2}(\frac{R_{2\,3}}{\sin q_5}, \frac{R_{1\,3}}{\sin q_5}) < \pi.
+\end{align*}
+As $-\frac{3\pi}{2} \leq q_4 \leq \frac{3\pi}{2}$, $q_4$ admits 3 solutions:
+\begin{align*}
+  q_4 &= \mbox{arctan2}(\frac{R_{2\,3}}{\sin q_5}, \frac{R_{1\,3}}{\sin q_5}) -2\pi \\
+  q_4 &= \mbox{arctan2}(\frac{R_{2\,3}}{\sin q_5}, \frac{R_{1\,3}}{\sin q_5}) \\
+  q_4 &= \mbox{arctan2}(\frac{R_{2\,3}}{\sin q_5}, \frac{R_{1\,3}}{\sin q_5}) + 2\pi
+\end{align*}
+
+\subsubsection*{Computation of $q_6$}
+
+If $s_5\not=0$, $q_6$ from coefficients $R_{3\,1}$ and $R_{3\,2}$:
+\begin{align*}
+  q_6 &= \mbox{arctan2}(\frac{R_{3\,2}}{\sin q_5}, \frac{R_{3\,1}}{-\sin q_5}) + 2k\pi.
+\end{align*}
+
+\paragraph{Possible solutions.}
+
+\begin{align*}
+  -\pi \leq \mbox{arctan2}(\frac{R_{3\,2}}{\sin q_5}, \frac{R_{3\,1}}{-\sin q_5}) < \pi.
+\end{align*}
+As $-\frac{3\pi}{2} \leq q_6 \leq \frac{3\pi}{2}$, $q_6$ admits 3 solutions:
+\begin{align*}
+  q_6 &= \mbox{arctan2}(\frac{R_{3\,2}}{\sin q_5}, \frac{R_{3\,1}}{-\sin q_5}) -2\pi \\
+  q_6 &= \mbox{arctan2}(\frac{R_{3\,2}}{\sin q_5}, \frac{R_{3\,1}}{-\sin q_5}) \\
+  q_6 &= \mbox{arctan2}(\frac{R_{3\,2}}{\sin q_5}, \frac{R_{3\,1}}{-\sin q_5}) + 2\pi
+\end{align*}
+
+\subsubsection*{Encoding of the solutions}
+
+To encode the solution, we use an extra degree of freedom that stores an integer. The table below
+gathers the possible solutions for all joint angles
+
+\begin{tabular}{|l|l|l|}
+  \hline
+  configuration variable & solutions & numbering \\
+  \hline
+  $q_1$ & $\theta - \arcsin \frac{r_3}{\rho}$ & $i_1=0$\\
+   & $\theta - \arcsin \frac{r_3}{\rho} + 2\pi$ & $i_1=1$\\
+   & $\theta + \pi + \arcsin\frac{r_3}{\rho}$& $i_1=2$ \\
+   & $\theta - \pi + \arcsin\frac{r_3}{\rho}$& $i_1=3$\\
+  \hline
+  $q_3$ & $+ \arccos \frac{(x-r_2)^2 + (Z-r_1)^2 - r_4^2 - r_5^2}{2r_4r_5}$ & $i_3=0$\\
+  &$- \arccos \frac{(x-r_2)^2 + (Z-r_1)^2 - r_4^2 - r_5^2}{2r_4r_5}$ & $i_3=1$ \\
+  \hline
+  $q_5$ & $\arccos R_{3\,3}$ & $i_5 =0$ \\
+  & $-\arccos R_{3\,3}$ & $i_5=1$ \\
+  \hline
+  $q_4$ & $\mbox{arctan2}(\frac{R_{2\,3}}{\sin q_5}, \frac{R_{1\,3}}{\sin q_5}) -2\pi$ & $i_4=0$ \\
+        & $\mbox{arctan2}(\frac{R_{2\,3}}{\sin q_5}, \frac{R_{1\,3}}{\sin q_5})$ & $i_4=1$\\
+        & $\mbox{arctan2}(\frac{R_{2\,3}}{\sin q_5}, \frac{R_{1\,3}}{\sin q_5}) + 2\pi$ & $i_4=2$ \\
+  \hline
+  $q_6$ &$\mbox{arctan2}(\frac{R_{3\,2}}{\sin q_5}, \frac{R_{3\,1}}{-\sin q_5}) -2\pi$ & $i_6=0$ \\
+        &$\mbox{arctan2}(\frac{R_{3\,2}}{\sin q_5}, \frac{R_{3\,1}}{-\sin q_5})$ & $i_6=1$ \\
+  &$\mbox{arctan2}(\frac{R_{3\,2}}{\sin q_5}, \frac{R_{3\,1}}{-\sin q_5}) + 2\pi$ & $i_6=2$ \\
+  \hline
+\end{tabular}
+The indices of each configuration variables are linked to the extra degree of freedom $i$ by the
+following formula:
+$$
+i = i_1 + 4 i_3 + 8 i_5 + 16 i_4 + 48 i_6
+$$
+$i_1,i_3,i_5,i_4,i_6$ are retrieved from $i$ by computing successive Euclidean divisions.
+\begin{itemize}
+\item $i_1$ is the remainder of $i$ divided by 4,
+\item $i_3$ is the remainder of $\frac{i-i_1}{4}$ divided by 8,...
+\end{itemize}
 
 \section{Jacobian}
 

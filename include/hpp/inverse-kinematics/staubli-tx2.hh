@@ -34,6 +34,7 @@
 
 namespace hpp {
 namespace inverseKinematics {
+namespace staubliTx2 {
   /// Create a 6D grasp explicit constraint
   /// \param gripper, handle define local position and joints that are constrained,
   /// \param extraDof rank of the extra degree of freedom that determines which solution of
@@ -56,7 +57,7 @@ namespace inverseKinematics {
   ImplicitPtr_t createPreGrasp(const GripperPtr_t& gripper, const HandleConstPtr_t& handle,
       size_type extraDof, const value_type& shift, const std::string& baseLinkName, std::string n);
 
-  
+} // namespace staubliTx2
 } // namespace inverseKinematics
 } // namespace hpp
 
