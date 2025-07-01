@@ -184,7 +184,7 @@ BOOST_AUTO_TEST_CASE(staubli_inverse_kinematics) {
     Configuration_t q = shooter->shoot();
     // Try all possible inverse kinematics solutions
     for (size_type j=0; j<144; ++j) {
-      q.tail(1)[0] = j;
+      q.tail(1)[0] = (value_type)j;
       Status status = solver.solve(q);
       if(status == hpp::constraints::solver::HierarchicalIterative::SUCCESS) {
         ++nSuccess;

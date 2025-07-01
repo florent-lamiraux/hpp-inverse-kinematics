@@ -87,11 +87,11 @@ protected:
       robot->model().getFrameId(baseLinkName)),
     rootIdx_(robot->model().frames[baseLinkIdx_].parentJoint),
     inConf_(inConf), inVel_(inVel), outConf_(outConf),
-    nq_(robot->model().nq), data_(robot->model()) {
-    hppDout(info, "baseLinkName=" << baseLinkName);
-    hppDout(info, "baseLinkIdx_=" << baseLinkIdx_);
+    nq_(robot->model().nq), r1_(0), r2_(0), r3_(0), r4_(0), r5_(0), r6_(0),
+    data_(robot->model()) {
     q_.resize(robot->configSize());
     ::pinocchio::neutral(robot->model(), q_.head(nq_));
+    retrieveGeometricalParameters(baseLinkName);
   }
 
   virtual void impl_compute(LiegroupElementRef result, vectorIn_t argument) const {
@@ -103,9 +103,6 @@ protected:
     Transform3s joint1Pose(data_.oMi[joint2_->index()] * frame2_ * frame1_.inverse());
     // pose of last joint in robot arm base_link
     Transform3s Minput(_0Mb.inverse() * joint1Pose);
-    hppDout(info, "_0Mb=" << _0Mb);
-    hppDout(info, "joint1Pose=" << joint1Pose);
-    hppDout(info, "Minput=" << Minput);
     // Get joint limits
     int joint1Iq = robot_->model().joints[joint1_->index()].idx_q();
     double q1_min = robot_->model().lowerPositionLimit[joint1Iq - 6+1];
@@ -120,7 +117,6 @@ protected:
     double q4_max = robot_->model().upperPositionLimit[joint1Iq - 6+4];
     double q5_max = robot_->model().upperPositionLimit[joint1Iq - 6+5];
     double q6_max = robot_->model().upperPositionLimit[joint1Iq - 6+6];
-    hppDout(info, "joint1Iq=" << joint1Iq);
 
     // Computation of the indices of the solution for each configuration variable
     std::div_t res = div(extraDof, 4);
@@ -135,48 +131,41 @@ protected:
     res = div(i, 3);
     int i4 = res.rem;
     int i6 = res.quot;
-    hppDout(info, "extraDof=" << extraDof);
-    hppDout(info, "i1=" << i1);
-    hppDout(info, "i3=" << i3);
-    hppDout(info, "i5=" << i5);
-    hppDout(info, "i4=" << i4);
-    hppDout(info, "i6=" << i6);
     
     constexpr double pi = 3.14159265358979323846;
 
     double q1, q2, q3, q4, q5, q6;
 
-    double r1 = 0.478;
-    double r2 = 0.050;
-    double r3 = 0.050;
-    double r4 = 0.425;
-    double r5 = 0.425;
-    double r6 = 0.1;
+    // double r1 = 0.478;
+    // double r2 = 0.050;
+    // double r3 = 0.050;
+    // double r4 = 0.425;
+    // double r5 = 0.425;
+    // double r6 = 0.1;
 
-    vector3_t offset; offset << 0, 0, -r6;
+    vector3_t offset; offset << 0, 0, -r6_;
     vector3_t concurrentPoint = Minput.act(offset);
 
-    hppDout(info, "concurrentPoint = " << concurrentPoint.transpose());
     double X = concurrentPoint(0);
     double Y = concurrentPoint(1);
     double Z = concurrentPoint(2);
 
     double rho = sqrt(X*X+Y*Y);
-    if (rho < r3) throw NoSolution();
+    if (rho < r3_) throw NoSolution();
     double theta = atan2(Y, X);
 
     switch (i1) {
     case 0:
-      q1 = theta - asin(r3/rho);
+      q1 = theta - asin(r3_/rho);
       break;
     case 1:
-      q1 = theta - asin(r3/rho) + 2*pi;
+      q1 = theta - asin(r3_/rho) + 2*pi;
       break;
     case 2:
-      q1 = theta + pi + asin(r3/rho);
+      q1 = theta + pi + asin(r3_/rho);
       break;
     case 3:
-      q1 = theta - pi + asin(r3/rho);
+      q1 = theta - pi + asin(r3_/rho);
       break;
     default:
       abort();
@@ -187,10 +176,10 @@ protected:
 
     switch(i3) {
     case 0:
-      q3 = acos(((x-r2)*(x-r2) + (Z-r1)*(Z-r1) - r4*r4 - r5*r5)/(2*r4*r5));
+      q3 = acos(((x-r2_)*(x-r2_) + (Z-r1_)*(Z-r1_) - r4_*r4_ - r5_*r5_)/(2*r4_*r5_));
       break;
     case 1:
-      q3 = -acos(((x-r2)*(x-r2) + (Z-r1)*(Z-r1) - r4*r4 - r5*r5)/(2*r4*r5));
+      q3 = -acos(((x-r2_)*(x-r2_) + (Z-r1_)*(Z-r1_) - r4_*r4_ - r5_*r5_)/(2*r4_*r5_));
       break;
     default:
       abort();
@@ -198,19 +187,19 @@ protected:
     if (std::isnan(q3) || (q3_min > q3) || (q3 > q3_max)) throw NoSolution();
     double c3 = cos(q3), s3 = sin(q3);
 
-    q2 = atan2((r5*c3+r4)*(x-r2)-r5*s3*(Z-r1),r5*s3*(x-r2)+(r5*c3+r4)*(Z-r1));
+    q2 = atan2((r5_*c3+r4_)*(x-r2_)-r5_*s3*(Z-r1_),r5_*s3*(x-r2_)+(r5_*c3+r4_)*(Z-r1_));
     if ((q2_min > q2) || (q2 > q2_max)) throw NoSolution();
     double c2 = cos(q2), s2 = sin(q2);
 
-    // assert(fabs(r5*c1*s23 - r3*s1 + r4*c1*s2 + r2*c1 - X) < 1e-8);
-    // assert(fabs(r5*s1*s23 + r3*c1 + r4*s1*s2 + r2*s1 - Y) < 1e-8);
-    assert(fabs(r5*(c2*c3 - s2*s3) + r4*c2 + r1 - Z) < 1e-8);
-    assert(fabs(r5*(s2*c3 + c2*s3) + r4*s2 + r2 - x) < 1e-8);
-    assert(fabs(c1*Y - s1*X-r3) < 1e-8);
+    // assert(fabs(r5_*c1*s23 - r3_*s1 + r4_*c1*s2 + r2_*c1 - X) < 1e-8);
+    // assert(fabs(r5_*s1*s23 + r3_*c1 + r4_*s1*s2 + r2_*s1 - Y) < 1e-8);
+    assert(fabs(r5_*(c2*c3 - s2*s3) + r4_*c2 + r1_ - Z) < 1e-8);
+    assert(fabs(r5_*(s2*c3 + c2*s3) + r4_*s2 + r2_ - x) < 1e-8);
+    assert(fabs(c1*Y - s1*X-r3_) < 1e-8);
     assert(fabs(X - rho*cos(theta)) < 1e-8);
     assert(fabs(Y - rho*sin(theta)) < 1e-8);
-    assert(fabs(r3 - rho*(c1*sin(theta)-cos(theta)*s1)) < 1e-8);
-    assert(fabs(sin(theta - q1) - r3/rho) < 1e-8);
+    assert(fabs(r3_ - rho*(c1*sin(theta)-cos(theta)*s1)) < 1e-8);
+    assert(fabs(sin(theta - q1) - r3_/rho) < 1e-8);
     matrix3_t R03;
     R03 <<
       c1*c2*c3 - c1*s2*s3, -s1, c1*c2*s3 + c1*s2*c3,
@@ -268,8 +257,6 @@ protected:
     result.vector()[3] = q4;
     result.vector()[4] = q5;
     result.vector()[5] = q6;
-    hppDout(info, "result.vector()=" << result.vector().transpose());
-
   }
 
   virtual void impl_jacobian(matrixOut_t jacobian, vectorIn_t arg) const {
@@ -319,6 +306,205 @@ private:
     ::pinocchio::updateFramePlacements(robot_->model(), data_);
   }
 
+  void retrieveGeometricalParameters(const std::string& baseLinkName)
+  {
+    JointIndex i1 = joint1_->index() - 5,
+      i2 = joint1_->index() - 4,
+      i3 = joint1_->index() - 3,
+      i4 = joint1_->index() - 2,
+      i5 = joint1_->index() - 1,
+      i6 = joint1_->index() - 0;
+    // Check that base_link and joint1 have same parent joint
+    if (robot_->model().parents[i1] != rootIdx_) {
+      std::ostringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: base_link ("
+	 << baseLinkName << ") does not have the same parent as joint ("
+	 << robot_->model().names[i1] << ").";
+      throw std::logic_error(os.str().c_str());
+    }
+    // Placement of base link i parent joint
+    pinocchio::SE3 pMb(robot_->model().frames[baseLinkIdx_].placement);
+    pinocchio::SE3 pMj1(robot_->model().jointPlacements[i1]);
+    pinocchio::SE3 j1Mj2(robot_->model().jointPlacements[i2]);
+    pinocchio::SE3 j2Mj3(robot_->model().jointPlacements[i3]);
+    pinocchio::SE3 j3Mj4(robot_->model().jointPlacements[i4]);
+    pinocchio::SE3 j4Mj5(robot_->model().jointPlacements[i5]);
+    pinocchio::SE3 j5Mj6(robot_->model().jointPlacements[i6]);
+    hppDout(info, "pMb=" << pMb);
+    hppDout(info, "pMj1=" << pMj1);
+    hppDout(info, "j1Mj2=" << j1Mj2);
+    hppDout(info, "j2Mj3=" << j2Mj3);
+    hppDout(info, "j3Mj4=" << j3Mj4);
+    hppDout(info, "j4Mj5=" << j4Mj5);
+    hppDout(info, "j5Mj6=" << j5Mj6);
+    // Check that center of joint1 is on z-axis of base_link
+    pinocchio::SE3 bMj1(pMb.inverse()*pMj1);
+    // Use a high threshold in case the robot has been calibrated
+    if ((fabs(bMj1.translation()(0)) > 1e-3) || (fabs(bMj1.translation()(0)) > 1e-3)) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i1] << ") center is not on z-axis of base_link ("
+	 << baseLinkName << ").";
+      throw std::logic_error(os.str().c_str());
+    }
+    // check that joint1 is oriented like base_link
+    if (::pinocchio::log3(bMj1.rotation()).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint1 ("
+	 << robot_->model().names[i1] << ") has different orientation than base_link ("
+	 << baseLinkName << ").";
+      throw std::logic_error(os.str().c_str());
+    }
+
+    pinocchio::SE3 bMj2(bMj1*j1Mj2);
+    hppDout(info, "bMj2=" << bMj2);
+    // check that joint2 is oriented like base_link
+    if (::pinocchio::log3(bMj2.rotation()).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i2] << ") has different orientation than base_link ("
+	 << baseLinkName << ").";
+      throw std::logic_error(os.str().c_str());
+    }
+    // retrieve r1 and r2
+    r1_ = bMj2.translation()(2);
+    r2_ = bMj2.translation()(0);
+
+    // check that joint3 is oriented like joint 2
+    if (::pinocchio::log3(j2Mj3.rotation()).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i3] << ") has different orientation than joint ("
+	 << robot_->model().names[i2] << ").";
+      throw std::logic_error(os.str().c_str());
+    }
+    if (fabs(j2Mj3.translation()(0)) > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: center of joint ("
+	 << robot_->model().names[i3] << ") should have 0 x-coordinate in joint ("
+	 << robot_->model().names[i2] << "): got " << j2Mj3.translation()(0) << ".";
+      throw std::logic_error(os.str().c_str());
+    }
+    r4_ = j2Mj3.translation()(2);
+
+    ::pinocchio::SE3 j2Mj4(j2Mj3*j3Mj4);
+    // check that joint4 is oriented like joint 2
+    if (::pinocchio::log3(j2Mj4.rotation()).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i4] << ") has different orientation than joint ("
+	 << robot_->model().names[i2] << ").";
+      throw std::logic_error(os.str().c_str());
+    }
+    // retrieve parameters r3 and r4
+    r3_ = j2Mj4.translation()(1);
+
+    pinocchio::SE3 j3Mj5(j3Mj4*j4Mj5);
+    hppDout(info, "j3Mj5=" << j3Mj5);
+    // check that joint5 is oriented like joint 3
+    if (::pinocchio::log3(j3Mj5.rotation()).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i4] << ") has different orientation than joint ("
+	 << robot_->model().names[i2] << ").";
+      throw std::logic_error(os.str().c_str());
+    }
+    // retrieve parameter r5
+    r5_ = j3Mj5.translation()(2);
+    // check that joint6 is oriented like joint 5
+    if (::pinocchio::log3(j5Mj6.rotation()).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i6] << ") has different orientation than joint ("
+	 << robot_->model().names[i5] << ").";
+      throw std::logic_error(os.str().c_str());
+    }
+    if (fabs(j5Mj6.translation()(0)) > 1e-3 || fabs(j5Mj6.translation()(1)) > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: center of joint ("
+	 << robot_->model().names[i6] << ") should be on z-axis of joint ("
+	 << robot_->model().names[i6] << ") coordinates are "
+	 << j5Mj6.translation() << ".";
+      throw std::logic_error(os.str().c_str());
+    }
+    r6_ = j5Mj6.translation()(2);
+    hppDout(info, "r1_ = " << r1_);
+    hppDout(info, "r2_ = " << r2_);
+    hppDout(info, "r3_ = " << r3_);
+    hppDout(info, "r4_ = " << r4_);
+    hppDout(info, "r5_ = " << r5_);
+    hppDout(info, "r6_ = " << r6_);
+    // Check rotation axes of each joint using Jacobian matrix
+    vector_t q(robot_->model().nq);
+    ::pinocchio::neutral(robot_->model(), q);
+    ::pinocchio::forwardKinematics(robot_->model(), data_, q);
+    ::pinocchio::computeJointJacobians(robot_->model(), data_, q);
+    hppDout(info, "data.J = " << data_.J << std::endl);
+    vector3_t axis;
+    vector3_t y_axis; y_axis << 0, 1, 0;
+    vector3_t z_axis; z_axis << 0, 0, 1;
+    // joint 1
+    axis = data_.J.col(robot_->model().idx_vs[i1]).tail(3);
+    hppDout(info, "axis=" << axis);
+    if ((axis-z_axis).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i1] << ") should rotate around z-axis. Rotation axis is "
+	 << axis << ".";
+      throw std::logic_error(os.str().c_str());
+    }
+    // joint 2
+    axis = data_.J.col(robot_->model().idx_vs[i2]).tail(3);
+    hppDout(info, "axis=" << axis);
+    if ((axis-y_axis).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i2] << ") should rotate around y-axis. Rotation axis is "
+	 << axis << ".";
+      throw std::logic_error(os.str().c_str());
+    }
+    // joint 3
+    axis = data_.J.col(robot_->model().idx_vs[i3]).tail(3);
+    hppDout(info, "axis=" << axis);
+    if ((axis-y_axis).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i3] << ") should rotate around y-axis. Rotation axis is "
+	 << axis << ".";
+      throw std::logic_error(os.str().c_str());
+    }
+    // joint 4
+    axis = data_.J.col(robot_->model().idx_vs[i4]).tail(3);
+    hppDout(info, "axis=" << axis);
+    if ((axis-z_axis).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i4] << ") should rotate around z-axis. Rotation axis is "
+	 << axis << ".";
+      throw std::logic_error(os.str().c_str());
+    }
+    // joint 5
+    axis = data_.J.col(robot_->model().idx_vs[i5]).tail(3);
+    hppDout(info, "axis=" << axis);
+    if ((axis-y_axis).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i5] << ") should rotate around y-axis. Rotation axis is "
+	 << axis << ".";
+      throw std::logic_error(os.str().c_str());
+    }
+    // joint 6
+    axis = data_.J.col(robot_->model().idx_vs[i6]).tail(3);
+    hppDout(info, "axis=" << axis);
+    if ((axis-z_axis).norm() > 1e-3) {
+      std::stringstream os;
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
+	 << robot_->model().names[i6] << ") should rotate around z-axis. Rotation axis is "
+	 << axis << ".";
+      throw std::logic_error(os.str().c_str());
+    }
+  }
+
   DevicePtr_t robot_;
   JointConstPtr_t joint1_, joint2_;
   Transform3s frame1_, frame2_;
@@ -328,6 +514,8 @@ private:
   Eigen::ColBlockIndices inVel_;
   Eigen::RowBlockIndices outConf_;
   int nq_;
+  // Geometrical values retrieved from the model
+  value_type r1_, r2_, r3_, r4_, r5_, r6_;
   // Local members to avoid memory allocation
   mutable vector_t qsmall_, q_;
   mutable ::pinocchio::Data data_;
