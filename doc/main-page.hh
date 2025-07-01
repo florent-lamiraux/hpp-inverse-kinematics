@@ -26,5 +26,6 @@
 /// \subsection hpp_inverse_kinematics_subsec_corba CORBA interface
 ///
 /// The above library is exposed as a CORBA interface hpp::corbaserver::inverse_kinematics::StaubliTx2 in a plugin.
+///
 
 
