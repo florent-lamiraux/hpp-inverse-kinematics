@@ -24,7 +24,8 @@ newProblem()
 Robot.urdfFilename = "package://hpp-coverage/urdf/syabot.urdf"
 Robot.srdfFilename = "package://hpp-coverage/srdf/syabot.srdf"
 
-robot= Robot("staubli-part", "staubli", rootJointType="freeflyer")
+robot= Robot("staubli-part", "staubli", rootJointType="anchor")
+robot.setJointPosition ('staubli/root_joint', [.02, 0, 0, 0, 0, 0, 1])
 
 ps = ProblemSolver(robot)
 vf = ViewerFactory(ps)
@@ -33,21 +34,20 @@ vf.loadRobotModel(Part, "part")
 robot.setJointBounds("part/root_joint", [-1., 1., -1., 1.,-1., 1.])
 # Add a configuration variable for exact inverse kinematics
 robot.client.basic.robot.setDimensionExtraConfigSpace(1)
-robot.client.basic.robot.setExtraConfigSpaceBounds([0, 16])
+robot.client.basic.robot.setExtraConfigSpaceBounds([0, 144])
 
-# [0:7] : freeflyer arm
-# [7:13] : arm joints,
-# [13:20] : freeflyer part
-# [20:21] : extra dof
-q0 = 6*[0.] + [1.] + 6*[0.] + [-.7, 0, -0.1] + [0, 0, sqrt(2)/2, sqrt(2)/2] + [0]
+# [0:6] : arm joints,
+# [6:13] : freeflyer part
+# [13:14] : extra dof
+q0 = 6*[0.] + [-.7, 0, -0.1] + [0, 0, sqrt(2)/2, sqrt(2)/2] + [0]
 
 # Create exact inverse kinematics constraints
 s = IkClient()
 s.staubli_tx2.createGrasp("staubli/tooltip grasps part/part_top", "staubli/tooltip",
-                          "part/part_top", "staubli/base_link", 20)
+                          "part/part_top", "staubli/base_link", 13)
 
 s.staubli_tx2.createPreGrasp("staubli/tooltip pregrasps part/part_top", "staubli/tooltip",
-                             "part/part_top", "staubli/base_link", 20)
+                             "part/part_top", "staubli/base_link", 13)
 
 # Create the constraint graph
 cg = ConstraintGraph(robot, 'graph')
@@ -57,7 +57,10 @@ factory.setObjects(["part"], [["part/part_top"]], [[]])
 factory.generate()
 cg.initialize()
 
-q0[0] = .28
-q0[1] = .14
+solutions = list()
+q = q0[:]
+for i in range(143):
+    q[-1] = i
+    res, q1, err = cg.applyNodeConstraints("staubli/tooltip grasps part/part_top", q)
+    if res: solutions.append(q1)
 
-res, q1, err = cg.applyNodeConstraints("staubli/tooltip grasps part/part_top", q0)
