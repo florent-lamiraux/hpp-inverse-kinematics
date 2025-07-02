@@ -8,3 +8,11 @@ assumed to be integer valued.
 
 Right now, only robots of the serie Stäubli TX2 are supported, but extension to other robots
 should not be difficult.
+
+## Validation
+
+Inverse kinematics for the Stäubli TX2 series has been validated for the following models:
+
+  - Stäubli TX2 90: retrieval of Denavit-Hartenberg (DH) parameters, computation of inverse
+    kinematics,
+  - Stäubli TX2 60: retrieval of DH parameters.

@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>hpp-inverse-kinematics</name>
+  <version>0.0.1</version>
+  <description>Implement exact inverse for some robots. </description>
+
+  <maintainer email="guilhem.saurel@laas.fr">Guilhem Saurel</maintainer>
+
+  <author>Florent Lamiraux</author>
+
+  <license>BSD-2</license>
+
+  <url type="website">https://github.com/humanoid-path-planner/hpp-inverse-kinematics</url>
+  <url type="repository">https://github.com/humanoid-path-planner/hpp-inverse-kinematics</url>
+  <url type="bugtracker">https://github.com/humanoid-path-planner/hpp-inverse-kinematics/issues</url>
+
+  <buildtool_depend>cmake</buildtool_depend>
+
+  <build_depend>doxygen</build_depend>
+
+  <depend>hpp-corbaserver</depend>
+  <depend>hpp-manipulation</depend>
+
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+</package>
