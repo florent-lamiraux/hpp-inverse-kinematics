@@ -364,26 +364,22 @@
        id="path1843" />
     <text
        xml:space="preserve"
-       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';stroke-width:0.264583"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';stroke-width:0.264583;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"
        x="96.027206"
        y="104.97421"
        id="text1903"><tspan
          sodipodi:role="line"
-         id="tspan1901"
-         style="stroke-width:0.264583"
-         x="96.027206"
-         y="104.97421">joint1</tspan></text>
+         id="tspan412">joint a</tspan></text>
     <text
        xml:space="preserve"
-       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';stroke-width:0.264583"
-       x="65.323006"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52777px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:0.264583"
+       x="64.264671"
        y="80.852425"
        id="text1907"><tspan
          sodipodi:role="line"
-         id="tspan1905"
-         style="stroke-width:0.264583"
-         x="65.323006"
-         y="80.852425">joint2</tspan></text>
+         id="tspan414"
+         x="64.264671"
+         y="80.852425">joint b</tspan></text>
     <path
        style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#marker1398)"
        d="m 75.89376,79.742345 8.235389,7.94e-4"

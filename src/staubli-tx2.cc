@@ -29,6 +29,7 @@
 
 
 #include <cstdlib>
+#include <Eigen/Geometry>
 #include <hpp/constraints/explicit.hh>
 #include <hpp/constraints/generic-transformation.hh>
 #include <hpp/constraints/matrix-view.hh>
@@ -68,11 +69,11 @@ public:
   typedef shared_ptr<InverseKinematics> Ptr_t;
   typedef weak_ptr<InverseKinematics> WkPtr_t;
   static Ptr_t create(const std::string& name, const DevicePtr_t& robot,
-		      const JointConstPtr_t& joint1, const JointConstPtr_t& joint2,
-		      const Transform3s& frame1, const Transform3s& frame2,
+		      const JointConstPtr_t& jointa, const JointConstPtr_t& jointb,
+		      const Transform3s& framea, const Transform3s& frameb,
 		      const std::string& baseLinkName, const segments_t inConf,
 		      const segments_t outConf, const segments_t inVel) {
-    return Ptr_t(new InverseKinematics(name, robot, joint1, joint2, frame1, frame2, baseLinkName,
+    return Ptr_t(new InverseKinematics(name, robot, jointa, jointb, framea, frameb, baseLinkName,
 				       inConf, outConf, inVel));
   }
 protected:
@@ -105,22 +106,22 @@ public:
   ///
   /// \param name the name of the constraints,
   /// \param robot the robot the constraints is applied to,
-  /// \param joint1 the first joint the transformation of which is
+  /// \param jointa the first joint the transformation of which is
   ///               constrained,
-  /// \param joint2 the second joint the transformation of which is
+  /// \param jointb the second joint the transformation of which is
   ///               constrained,
-  /// \param frame1 position of a fixed frame in joint 1,
-  /// \param frame2 position of a fixed frame in joint 2,
+  /// \param framea position of a fixed frame in joint a,
+  /// \param frameb position of a fixed frame in joint b,
   /// \param baseLinkName name of the robot base_link (origin of the robot frame),
   /// \param extraDof extra degree of freedom used to store an integer. This integrer
   ///        determines which inverse kinematics solution to return when several exist.
-  /// \note if joint1 is 0x0, joint 1 frame is considered to be the global
+  /// \note if jointa is 0x0, joint 1 frame is considered to be the global
   ///       frame.
   static Ptr_t create(
       const std::string& name, const DevicePtr_t& robot,
-      const JointConstPtr_t& joint1, const JointConstPtr_t& joint2, const Transform3s& frame1,
-      const Transform3s& frame2, const std::string& baseLinkName, size_type extraDof) {
-    Explicit* ptr(new Explicit(name, robot, joint1, joint2, frame1, frame2, baseLinkName,
+      const JointConstPtr_t& jointa, const JointConstPtr_t& jointb, const Transform3s& framea,
+      const Transform3s& frameb, const std::string& baseLinkName, size_type extraDof) {
+    Explicit* ptr(new Explicit(name, robot, jointa, jointb, framea, frameb, baseLinkName,
 				   extraDof));
     Ptr_t shPtr(ptr);
     WkPtr_t wkPtr(shPtr);
@@ -140,29 +141,31 @@ public:
   /// Compute output value assuming right hand side is 0.
   void outputValue(LiegroupElementRef result, vectorIn_t qin, LiegroupElementConstRef rhs) const
   {
-    assert(rhs == rhs.space()->neutral());
+    Transform3s rhs3s(Eigen::Quaternion<value_type>(vector4_t(rhs.vector().tail<4>())),
+		      vector3_t(rhs.vector().head<3>()));
     forwardKinematics(qin);
     int extraDof = (int) qin.tail(1)[0];
     // pose of the robot root joint
     Transform3s _0Mb(data_.oMf[baseLinkIdx_]);
-    // pose of joint1: J2 * F2 * F1^{-1}
-    Transform3s joint1Pose(data_.oMi[joint2_->index()] * frame2_ * frame1_.inverse());
+    // pose of joint a: Jb * Fb * Fa^{-1}
+    Transform3s jointaPose(data_.oMi[jointb_->index()] * frameb_ * rhs3s.inverse() *
+			   framea_.inverse());
     // pose of last joint in robot arm base_link
-    Transform3s Minput(_0Mb.inverse() * joint1Pose);
+    Transform3s Minput(_0Mb.inverse() * jointaPose);
     // Get joint limits
-    int joint1Iq = robot_->model().joints[joint1_->index()].idx_q();
-    double q1_min = robot_->model().lowerPositionLimit[joint1Iq - 6+1];
-    double q2_min = robot_->model().lowerPositionLimit[joint1Iq - 6+2];
-    double q3_min = robot_->model().lowerPositionLimit[joint1Iq - 6+3];
-    double q4_min = robot_->model().lowerPositionLimit[joint1Iq - 6+4];
-    double q5_min = robot_->model().lowerPositionLimit[joint1Iq - 6+5];
-    double q6_min = robot_->model().lowerPositionLimit[joint1Iq - 6+6];
-    double q1_max = robot_->model().upperPositionLimit[joint1Iq - 6+1];
-    double q2_max = robot_->model().upperPositionLimit[joint1Iq - 6+2];
-    double q3_max = robot_->model().upperPositionLimit[joint1Iq - 6+3];
-    double q4_max = robot_->model().upperPositionLimit[joint1Iq - 6+4];
-    double q5_max = robot_->model().upperPositionLimit[joint1Iq - 6+5];
-    double q6_max = robot_->model().upperPositionLimit[joint1Iq - 6+6];
+    int jointaIq = robot_->model().joints[jointa_->index()].idx_q();
+    double q1_min = robot_->model().lowerPositionLimit[jointaIq - 6+1];
+    double q2_min = robot_->model().lowerPositionLimit[jointaIq - 6+2];
+    double q3_min = robot_->model().lowerPositionLimit[jointaIq - 6+3];
+    double q4_min = robot_->model().lowerPositionLimit[jointaIq - 6+4];
+    double q5_min = robot_->model().lowerPositionLimit[jointaIq - 6+5];
+    double q6_min = robot_->model().lowerPositionLimit[jointaIq - 6+6];
+    double q1_max = robot_->model().upperPositionLimit[jointaIq - 6+1];
+    double q2_max = robot_->model().upperPositionLimit[jointaIq - 6+2];
+    double q3_max = robot_->model().upperPositionLimit[jointaIq - 6+3];
+    double q4_max = robot_->model().upperPositionLimit[jointaIq - 6+4];
+    double q5_max = robot_->model().upperPositionLimit[jointaIq - 6+5];
+    double q6_max = robot_->model().upperPositionLimit[jointaIq - 6+6];
 
     // Computation of the indices of the solution for each configuration variable
     std::div_t res = div(extraDof, 4);
@@ -308,39 +311,40 @@ public:
   void jacobianOutputValue(vectorIn_t qin, LiegroupElementConstRef,
 			   LiegroupElementConstRef rhs, matrixOut_t jacobian) const
   {
-    assert(rhs == rhs.space()->neutral());
+    Transform3s rhs3s(Eigen::Quaternion<value_type>(vector4_t(rhs.vector().tail<4>())),
+		      vector3_t(rhs.vector().head<3>()));
     forwardKinematics(qin);
     J_.resize(6, BlockIndex::cardinal(inputVelocity()));
-    Transform3s _0M1(data_.oMi[joint1_->index()]);
-    Transform3s _0M2(data_.oMi[joint2_->index()]);
+    Transform3s _0Ma(data_.oMi[jointa_->index()]);
+    Transform3s _0Mb(data_.oMi[jointb_->index()]);
     Transform3s _0Mr(data_.oMi[rootIdx_]);
-    Transform3s _rM2(_0Mr.inverse() * _0M2);
-    matrix3_t _0R1(_0M1.rotation());
-    matrix3_t _1R2(_0R1.transpose() * _0M2.rotation());
-    matrix3_t _1Rr(_0R1.transpose() * _0Mr.rotation());
-    matrix3_t _2th_cross(cross(frame2_.translation()));
+    Transform3s _rMb(_0Mr.inverse() * _0Mb);
+    matrix3_t _0Ra(_0Ma.rotation());
+    matrix3_t _aRb(_0Ra.transpose() * _0Mb.rotation());
+    matrix3_t _aRr(_0Ra.transpose() * _0Mr.rotation());
+    matrix3_t _bth_cross(cross(frameb_.translation()));
     // pose of the robot root joint
-    Transform3s _0Mg(_0M1*frame1_);
-    Transform3s _1Mg(_0M1.inverse() * _0Mg);
-    vector3_t _1tg(_1Mg.translation());
-    vector3_t _rtg((_0Mr.inverse()*_0Mg).translation());
+    Transform3s _0Mgp(_0Ma*framea_);
+    Transform3s _aMgp(_0Ma.inverse() * _0Mgp);
+    vector3_t _atgp(_aMgp.translation());
+    vector3_t _rtgp((_0Mr.inverse()*_0Mgp).translation());
 
-    J2_.resize(6, robot_->numberDof());
-    J2_.setZero();
+    Jb_.resize(6, robot_->numberDof());
+    Jb_.setZero();
     Jr_.resize(6, robot_->numberDof());
     Jr_.setZero();
-    J1_.resize(6, robot_->numberDof());
-    J1_.setZero();
+    Ja_.resize(6, robot_->numberDof());
+    Ja_.setZero();
     ::pinocchio::getJointJacobian(
-      robot_->model(), data_, joint2_->index(),::pinocchio::LOCAL, J2_);
+      robot_->model(), data_, jointb_->index(),::pinocchio::LOCAL, Jb_);
     ::pinocchio::getJointJacobian(robot_->model(), data_, rootIdx_, ::pinocchio::LOCAL, Jr_);
-    J2_in_ = Eigen::RowBlockIndices(inputConf()).rview(J2_);
+    Jb_in_ = Eigen::RowBlockIndices(inputConf()).rview(Jb_);
     Jr_in_ = Eigen::RowBlockIndices(inputConf()).rview(Jr_);
-    J_.topRows(3) = _1R2*(-_2th_cross*J2_in_.bottomRows(3) + J2_in_.topRows(3)) +
-      _1Rr*(cross(_rtg)*Jr_in_.bottomRows(3) - Jr_in_.topRows(3)) +
-      _0R1*cross(_1tg)*(_1R2*J2_in_.bottomRows(3) - _1Rr*Jr_in_.bottomRows(3));
-    J_.bottomRows(3) = _rM2.rotation() * J2_in_.bottomRows(3) - Jr_in_.bottomRows(3);
-    matrix6_t Jout(Eigen::RowBlockIndices(outputConf()).rview(J1_));
+    J_.topRows(3) = _aRb*(-_bth_cross*Jb_in_.bottomRows(3) + Jb_in_.topRows(3)) +
+      _aRr*(cross(_rtgp)*Jr_in_.bottomRows(3) - Jr_in_.topRows(3)) +
+      _0Ra*cross(_atgp)*(_aRb*Jb_in_.bottomRows(3) - _aRr*Jr_in_.bottomRows(3));
+    J_.bottomRows(3) = _rMb.rotation() * Jb_in_.bottomRows(3) - Jr_in_.bottomRows(3);
+    matrix6_t Jout(Eigen::RowBlockIndices(outputConf()).rview(Ja_));
     jacobian = Jout.inverse() * J_;
   }
 
@@ -349,30 +353,30 @@ public:
   ///
   /// \param name the name of the constraints,
   /// \param robot the robot the constraints is applied to,
-  /// \param joint1 the first joint the transformation of which is
+  /// \param jointa the first joint the transformation of which is
   ///               constrained,
-  /// \param joint2 the second joint the transformation of which is
+  /// \param jointb the second joint the transformation of which is
   ///               constrained,
-  /// \param frame1 position of a fixed frame in joint 1,
-  /// \param frame2 position of a fixed frame in joint 2,
-  /// \note if joint1 is 0x0, joint 1 frame is considered to be the global
+  /// \param framea position of a fixed frame in joint a,
+  /// \param frameb position of a fixed frame in joint b,
+  /// \note if jointa is 0x0, joint a frame is considered to be the global
   ///       frame.
   Explicit(const std::string& name, const DevicePtr_t& robot,
-	     const JointConstPtr_t& joint1, const JointConstPtr_t& joint2,
-	     const Transform3s& frame1, const Transform3s& frame2, const std::string& baseLinkName,
+	     const JointConstPtr_t& jointa, const JointConstPtr_t& jointb,
+	     const Transform3s& framea, const Transform3s& frameb, const std::string& baseLinkName,
 	     size_type extraDof)
-    : constraints::Explicit(RelativeTransformationR3xSO3::create(name, robot, joint1, joint2,
-								 frame1, frame2,
+    : constraints::Explicit(RelativeTransformationR3xSO3::create(name, robot, jointa, jointb,
+								 framea, frameb,
 								 std::vector<bool>(6, true)),
-               InverseKinematics::create(name, robot, joint1, joint2,
-	           frame1, frame2, baseLinkName, inputConfVariables(robot, joint1, joint2,
+               InverseKinematics::create(name, robot, jointa, jointb,
+	           framea, frameb, baseLinkName, inputConfVariables(robot, jointa, jointb,
 								    extraDof),
-	           outputConfVariables(joint1), inputVelVariables(robot, joint1, joint2, extraDof)),
-               inputConfVariables(robot, joint1, joint2, extraDof), outputConfVariables(joint1),
-               inputVelVariables(robot, joint1, joint2, extraDof), outputVelVariables(joint1),
+	           outputConfVariables(jointa), inputVelVariables(robot, jointa, jointb, extraDof)),
+               inputConfVariables(robot, jointa, jointb, extraDof), outputConfVariables(jointa),
+               inputVelVariables(robot, jointa, jointb, extraDof), outputVelVariables(jointa),
 	       ComparisonTypes_t(6*constraints::EqualToZero), std::vector<bool>(6, true)),
-    robot_(robot), joint1_ (joint1),
-    joint2_ (joint2), frame1_ (frame1), frame2_ (frame2), extraDof_(extraDof), baseLinkIdx_(
+    robot_(robot), jointa_ (jointa),
+    jointb_ (jointb), framea_ (framea), frameb_ (frameb), extraDof_(extraDof), baseLinkIdx_(
       robot->model().getFrameId(baseLinkName)),
     rootIdx_(robot->model().frames[baseLinkIdx_].parentJoint),
     nq_(robot->model().nq), r1_(0), r2_(0), r3_(0), r4_(0), r5_(0), r6_(0),
@@ -401,10 +405,10 @@ public:
   /// Copy constructor
   Explicit(const Explicit& other)
     : constraints::Explicit(other),
-      joint1_(other.joint1_),
-      joint2_(other.joint2_),
-      frame1_(other.frame1_),
-      frame2_(other.frame2_) {}
+      jointa_(other.jointa_),
+      jointb_(other.jointb_),
+      framea_(other.framea_),
+      frameb_(other.frameb_) {}
 
 
   /// Store weak pointer to itself
@@ -427,13 +431,13 @@ public:
 
   void retrieveGeometricalParameters(const std::string& baseLinkName)
   {
-    JointIndex i1 = joint1_->index() - 5,
-      i2 = joint1_->index() - 4,
-      i3 = joint1_->index() - 3,
-      i4 = joint1_->index() - 2,
-      i5 = joint1_->index() - 1,
-      i6 = joint1_->index() - 0;
-    // Check that base_link and joint1 have same parent joint
+    JointIndex i1 = jointa_->index() - 5,
+      i2 = jointa_->index() - 4,
+      i3 = jointa_->index() - 3,
+      i4 = jointa_->index() - 2,
+      i5 = jointa_->index() - 1,
+      i6 = jointa_->index() - 0;
+    // Check that base_link and jointa have same parent joint
     if (robot_->model().parents[i1] != rootIdx_) {
       std::ostringstream os;
       os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: base_link ("
@@ -449,7 +453,7 @@ public:
     pinocchio::SE3 j3Mj4(robot_->model().jointPlacements[i4]);
     pinocchio::SE3 j4Mj5(robot_->model().jointPlacements[i5]);
     pinocchio::SE3 j5Mj6(robot_->model().jointPlacements[i6]);
-    // Check that center of joint1 is on z-axis of base_link
+    // Check that center of jointa is on z-axis of base_link
     pinocchio::SE3 bMj1(pMb.inverse()*pMj1);
     // Use a high threshold in case the robot has been calibrated
     if ((fabs(bMj1.translation()(0)) > 1e-3) || (fabs(bMj1.translation()(0)) > 1e-3)) {
@@ -459,17 +463,17 @@ public:
 	 << baseLinkName << ").";
       throw std::logic_error(os.str().c_str());
     }
-    // check that joint1 is oriented like base_link
+    // check that jointa is oriented like base_link
     if (::pinocchio::log3(bMj1.rotation()).norm() > 1e-3) {
       std::stringstream os;
-      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint1 ("
+      os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: jointa ("
 	 << robot_->model().names[i1] << ") has different orientation than base_link ("
 	 << baseLinkName << ").";
       throw std::logic_error(os.str().c_str());
     }
 
     pinocchio::SE3 bMj2(bMj1*j1Mj2);
-    // check that joint2 is oriented like base_link
+    // check that jointb is oriented like base_link
     if (::pinocchio::log3(bMj2.rotation()).norm() > 1e-3) {
       std::stringstream os;
       os << "hpp::inverseKinematics::StaubliTx2::InverseKinematics: joint ("
@@ -603,9 +607,9 @@ public:
   }
   // Create LiegroupSpace instances to avoid useless allocation.
   DevicePtr_t robot_;
-  JointConstPtr_t joint1_, joint2_;
-  Transform3s frame1_;
-  Transform3s frame2_;
+  JointConstPtr_t jointa_, jointb_;
+  Transform3s framea_;
+  Transform3s frameb_;
   size_type extraDof_;
   FrameIndex baseLinkIdx_;
   JointIndex rootIdx_;
@@ -615,7 +619,7 @@ public:
   // Local members to avoid memory allocation
   mutable vector_t qsmall_, q_;
   mutable ::pinocchio::Data data_;
-  mutable matrix_t J_, J1_, J2_, J2_in_, Jr_, Jr_in_;
+  mutable matrix_t J_, Ja_, Jb_, Jb_in_, Jr_, Jr_in_;
   WkPtr_t weak_;
 }; // class Explicit
 

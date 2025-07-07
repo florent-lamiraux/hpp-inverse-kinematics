@@ -28,10 +28,13 @@
 // DAMAGE.
 
 #define BOOST_TEST_MODULE staubli_tx2
+#include <cstdlib>
 #include <boost/test/included/unit_test.hpp>
 
 #include <pinocchio/algorithm/kinematics.hpp>
 #include <pinocchio/multibody/model.hpp>
+#include <pinocchio/spatial/explog.hpp>
+#include <pinocchio/spatial/motion.hpp>
 
 #include <hpp/constraints/implicit.hh>
 #include <hpp/constraints/solver/by-substitution.hh>
@@ -54,6 +57,7 @@ using hpp::constraints::Explicit;
 using hpp::constraints::ExplicitPtr_t;
 typedef hpp::constraints::solver::HierarchicalIterative::Status Status;
 using hpp::constraints::ImplicitPtr_t;
+using hpp::constraints::ComparisonType;
 using hpp::constraints::Quaternion_t;
 
 typedef hpp::core::configurationShooter::GaussianPtr_t GaussianShooterPtr_t;
@@ -149,6 +153,7 @@ BOOST_AUTO_TEST_CASE(staubli_inverse_kinematics) {
 
   // Create exact inverse kinematics constraint
   ImplicitPtr_t ik(createGrasp(gripper, handle, extraDof, "staubli/base_link", "ik"));
+  ik->comparisonType(std::vector<ComparisonType>(6, hpp::constraints::Equality));
   // Dynamic cast as explicit constraint for later.
   ExplicitPtr_t explIk(HPP_DYNAMIC_PTR_CAST(Explicit, ik));
   BOOST_CHECK(explIk);
@@ -182,6 +187,17 @@ BOOST_AUTO_TEST_CASE(staubli_inverse_kinematics) {
   vector_t error; error.resize(6);
   for(size_type i=0; i<1000; ++i) {
     Configuration_t q = shooter->shoot();
+    // generate a random right hand side
+    Eigen::Matrix<value_type, 6, 1> u;
+    for (size_type j=0; j<6; ++j){
+      u[j] = (value_type)std::rand()/RAND_MAX/5;
+    }
+    pinocchio::Motion m(u.head<3>(), u.tail<3>());
+    Eigen::Matrix<value_type, 7, 1> rhs;
+    pinocchio::SE3 rhsSE3(exp6(m));
+    rhs.head<3>() = rhsSE3.translation();
+    rhs.tail<4>() = Quaternion_t(rhsSE3.rotation()).coeffs();
+    solver.rightHandSide(rhs);
     // Try all possible inverse kinematics solutions
     for (size_type j=0; j<144; ++j) {
       q.tail(1)[0] = (value_type)j;

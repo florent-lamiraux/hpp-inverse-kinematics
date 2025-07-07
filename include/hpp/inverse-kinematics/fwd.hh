@@ -55,6 +55,7 @@ namespace inverseKinematics {
   typedef pinocchio::vectorIn_t vectorIn_t;
   typedef pinocchio::vector_t vector_t;
   typedef pinocchio::vector3_t vector3_t;
+  typedef pinocchio::vector4_t vector4_t;
 
   typedef constraints::ComparisonTypes_t ComparisonTypes_t;
   typedef constraints::DifferentiableFunction DifferentiableFunction;

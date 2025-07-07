@@ -35,47 +35,58 @@ in~\cite{lamiraux:hal-02995125}.
 \section{Notation and Definitions}
 
 The constraint is defined as a 6 dimensional \textit{grasp} constraint between a \textit{gripper} and a
-\textit{handle}. The \textit{gripper} is attached to the robotic arm end-effector (\texttt{joint1}) and the \textit{handle} is attached to \texttt{joint2} on the composite kinematic chain. \texttt{root} is the joint that holds the robot arm or the global frame (\texttt{"universe"} in \texttt{pinocchio} software).
+\textit{handle}. The \textit{gripper} is attached to the robotic arm end-effector (\texttt{joint a}) and the \textit{handle} is attached to \texttt{joint b} on the composite kinematic chain. \texttt{root} is the joint that holds the robot arm or the global frame (\texttt{"universe"} in \texttt{pinocchio} software).
 
 We denote by
 \begin{itemize}
 \item $\conf_{in}$ the input variables of the explicit constraint,
 \item $\conf_{out}$ the output variables of the explicit constraint,
-\item $^0M_1$ the pose of \texttt{joint1} in the world frame,
-\item $^0M_2$ the pose of \texttt{joint2} in the world frame,
+\item $^0M_a$ the pose of \texttt{joint a} in the world frame,
+\item $^0M_b$ the pose of \texttt{joint b} in the world frame,
 \item $^0M_r$ the pose of \texttt{root} in the world frame,
-\item $^2M_h$ the pose of the handle in \texttt{joint2} frame,
-\item $^1M_g$ the pose of the gripper in \texttt{joint1} frame,
-\item $^rM_b$ the pose of the robot arm origin (\texttt{base\_link} in URDF
+\item $^bM_h$ the pose of the handle in \texttt{joint b} frame,
+\item $^aM_g$ the pose of the gripper in \texttt{joint a} frame,
+\item $^0M_h$ the pose of the handle in the world frame,
+\item $^0M_g$ the pose of the gripper in world frame,
+\item $^rM_{bl}$ the pose of the robot arm origin (\texttt{base\_link} in URDF
   description) in the \texttt{root} frame.
 \end{itemize}
 
 \section{Inverse kinematics}
 
+\subsection{Implicit formulation}
+
+The implicit formulation is represented by a function with values in $\reals^3\times SO(3)$:
+\begin{equation}\label{eq:implicit-formulation}
+^0M_g^{-1}\;^0M_h(\conf) = rhs
+\end{equation}
+where $rhs\in\reals^3\times SO(3)$ is the right hand side of the constraint.
+
+\subsection{Explicit fomulation}
+
 Exact inverse kinematics computes the 6 joint values of the robotic arm with
 respect to the input configuration variables:
 \begin{equation}\label{eq:inverse-kinematics}
-  \conf_{out} = f(\conf_{in})
+  \conf_{out} = f(\conf_{in}, rhs)
 \end{equation}
-Note that the input variables include a extra degree of freedom that is interpreted as an integer to select among the various solutions of the inverse kinematics.
+Note that the input variables include an extra degree of freedom that is interpreted as an integer to select among the various solutions of the inverse kinematics.
 
 \begin{figure}[h]
   \center
   \graphicspath{{./figures/}}
   \input{figures/staubli-TX90-schematic.pdf_tex}
-  \caption{Kinematic diagram of the Stäubli TX2-90 robot.}
+  \caption{Kinematic diagram of the Stäubli TX2 series robots.}
+  \label{fig:staubli-tx2}
 \end{figure}
-For the Staubli TX90, we have the following cotation in meters:
+Figure~\ref{fig:staubli-tx2} represents the kinematic chain of Stäubli TX2 series robots.
+
+To compute function $f$ in~(\ref{eq:inverse-kinematics}), we will determine the pose of the last robt joint in the base link of the robot and then use the kinematics of the robot to compute the joint values. Given the pose $^0M_h$ of the handle, we compute the desired pose $^0M_g$ of the gripper in the world frame from~(\ref{eq:implicit-formulation}):
 \begin{align*}
-  r1&=0.478\\
-  r2&=0.050\\
-  r3&=0.05\\
-  r4&=0.425\\
-  r5&=0.425\\
-  r6&=0.1\\
+  ^0M_g &= \;^0M_h rhs^{-1}\\
+  ^0M_{bl}\;^{bl}M_a\;^aM_g &= \;^0M_h rhs^{-1} \\
+  \;^{bl}M_a &= \;^0M_{bl}^{-1}\;^0M_h rhs^{-1} \;^aM_g^{-1}
 \end{align*}
-We are going to use the following schematic to determinate each transformation matrix for each frame.
-We denote by:
+In the following computations, \texttt{joint a} becomes joint 6. We denote by:
 \begin{itemize}
 \item $T_{i-1,i}$ the homogeneous transformation matrix from frame $i-1$ to frame $i$,\\
 \item $T_{0,1}$ the transformation matrix from base link to the first joint frame,\\
@@ -434,113 +445,120 @@ $i_1,i_3,i_5,i_4,i_6$ are retrieved from $i$ by computing successive Euclidean d
 
 \section{Jacobian}
 
-In order to implement exact inverse kinematics as an explicit constraint, we need to compute the Jacobian of $f$. For that, let us consider of motion of the kinematic chain that keeps the gripper and handle in the same pose:
+In order to implement exact inverse kinematics as an explicit constraint, we need to compute the Jacobian of $f$. For that, let us consider a motion of the kinematic chain that keeps the gripper and handle in the same pose:
 \begin{equation}\label{eq:jac1}
-\forall t\in\reals,\ ^0M_2(t)\;^2M_h = \;^0M_r(t) \;^rM_1(t)\;^1M_g
+\forall t\in\reals,\ ^0M_b(t)\;^bM_h = \;^0M_r(t) \;^rM_a(t)\;^aM_g\;rhs
 \end{equation}
 Moreover
 \begin{equation}\label{eq:jacobian arm}
 \left(\begin{array}{c}
-  \;^r\linvel_{1/r} \\ \;^r\omega_{1/r}
+  \;^r\linvel_{a/r} \\ \;^r\omega_{a/r}
 \end{array}\right) =
 J_{out} \dot{\conf}_{out}
 \end{equation}
 where $J_{out}$ is the 6x6 matrix composed of the columns of Jacobian of \texttt{joint1} corresponding to the arm degrees of freedom. We denote respectively by $J_{out\;\linvel}$ and $J_{out\;\omega}$ the first 3 and the last 3 lines of this matrix.
 
+Let us denote by
+$$
+^aM_{g'} = \;^aM_g rhs
+$$
+
 Using homogeneous matrix notation and derivating with respect to time, Equation~(\ref{eq:jac1}) can be written as $\forall t\in\reals$,
 \begin{align}\label{eq:jac2}
-  ^0M_2
-  \left(\begin{array}{ll}[\;^2\omega_{2/0}]_{\times} & \;^2\linvel_{2/0} \\ 0&0\end{array}\right)\;^2M_h =&
-    \;^0M_r\left(\begin{array}{ll}[\;^r\omega_{r/0}]_{\times} & \;^r\linvel_{r/0} \\ 0&0\end{array}\right) \;^rM_1\;^1M_g \\
-    & + \;^0M_r \;^rM_1\left(\begin{array}{ll}[\;^1\omega_{1/r}]_{\times} & \;^1\linvel_{1/r} \\ 0&0\end{array}\right)\;^1M_g &
+  ^0M_b
+  \left(\begin{array}{ll}[\;^b\omega_{b/0}]_{\times} & \;^b\linvel_{b/0} \\ 0&0\end{array}\right)\;^bM_h =&
+    \;^0M_r\left(\begin{array}{ll}[\;^r\omega_{r/0}]_{\times} & \;^r\linvel_{r/0} \\ 0&0\end{array}\right) \;^rM_a\;^aM_{g'} \\
+    & + \;^0M_r \;^rM_a\left(\begin{array}{ll}[\;^a\omega_{a/r}]_{\times} & \;^a\linvel_{a/r} \\ 0&0\end{array}\right)\;^aM_{g'} &
 \end{align}
 \begin{align*}
-  \left(\begin{array}{ll}^0R_2[^2\omega_{2/0}]_{\times} & ^0R_2\;^2\linvel_{2/0} \\ 0&0\end{array}\right)\;^2M_h =&
-    \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times} & ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \;^rM_1\;^1M_g \\
-    & + \;^0M_r \left(\begin{array}{ll}^rR_1[^1\omega_{1/r}]_{\times} & ^rR_1\;^1\linvel_{1/r} \\ 0&0\end{array}\right)\;^1M_g &
+  \left(\begin{array}{ll}^0R_b[^b\omega_{b/0}]_{\times} & ^0R_b\;^b\linvel_{b/0} \\ 0&0\end{array}\right)\;^bM_h =&
+    \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times} & ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \;^rM_a\;^aM_{g'} \\
+    & + \;^0M_r \left(\begin{array}{ll}^rR_a[^a\omega_{a/r}]_{\times} & ^rR_a\;^a\linvel_{a/r} \\ 0&0\end{array}\right)\;^aM_{g'} &
 \end{align*}
+
 %% \begin{align*}
-%%   \left(\begin{array}{ll}^0R_2[^2\omega_{2/0}]_{\times} & ^0R_2\;^2\linvel_{2/0} \\ 0&0\end{array}\right)\left(\begin{array}{ll}\;^2R_h & \;^2\trans_h\\ 0&1\end{array}\right) =&
-%%     \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times} & ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \left(\begin{array}{ll}^rR_g &\;^r\trans_g\\0&1\end{array}\right) \\
-%%     & + \left(\begin{array}{ll}^0R_r &\;^0\trans_r\\0&1\end{array}\right) \left(\begin{array}{ll}^rR_1[^1\omega_{1/r}]_{\times} & ^rR_1\;^1\linvel_{1/r} \\ 0&0\end{array}\right)\left(\begin{array}{ll}^1R_g &\;^1\trans_g\\0&1\end{array}\right) &
+%%   \left(\begin{array}{ll}^0R_b[^b\omega_{b/0}]_{\times} & ^0R_b\;^b\linvel_{b/0} \\ 0&0\end{array}\right)\left(\begin{array}{ll}\;^bR_h & \;^b\trans_h\\ 0&1\end{array}\right) =&
+%%     \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times} & ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \left(\begin{array}{ll}^rR_{g'} &\;^r\trans_{g'}\\0&1\end{array}\right) \\
+%%     + \left(\begin{array}{ll}^0R_r &\;^0\trans_r\\0&1\end{array}\right) \left(\begin{array}{ll}^rR_a[^a\omega_{a/r}]_{\times} & ^rR_a\;^a\linvel_{a/r} \\ 0&0\end{array}\right)\left(\begin{array}{ll}^aR_{g'} &\;^a\trans_{g'}\\0&1\end{array}\right) &
 %% \end{align*}
 %% \begin{align*}
-%%   \left(\begin{array}{ll}^0R_2[^2\omega_{2/0}]_{\times}\;^2R_h & ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} \\ 0&0\end{array}\right) =
-%%     \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times}\;^rR_g & ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \\
-%%       + \left(\begin{array}{ll}^0R_r\;^rR_1[^1\omega_{1/r}]_{\times} & ^0R_r\;^rR_1\;^1\linvel_{1/r} \\ 0&0\end{array}\right)\left(\begin{array}{ll}^1R_g &\;^1\trans_g\\0&1\end{array}\right) &
+%%   \left(\begin{array}{ll}^0R_b[^b\omega_{b/0}]_{\times}\;^bR_h & ^0R_b[^b\omega_{b/0}]_{\times}\;^b\trans_h + ^0R_b\;^b\linvel_{b/0} \\ 0&0\end{array}\right) =
+%%     \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times}\;^rR_{g'} & ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_{g'} + ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \\
+%%       + \left(\begin{array}{ll}^0R_r\;^rR_a[^a\omega_{a/r}]_{\times} & ^0R_r\;^rR_a\;^a\linvel_{a/r} \\ 0&0\end{array}\right)\left(\begin{array}{ll}^aR_{g'} &\;^a\trans_{g'}\\0&1\end{array}\right) &
 %% \end{align*}
+
 \begin{align*}
-  \left(\begin{array}{ll}^0R_2[^2\omega_{2/0}]_{\times}\;^2R_h & ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} \\ 0&0\end{array}\right) =
-    \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times}\;^rR_g & ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \\
-      + \left(\begin{array}{ll}^0R_r\;^rR_1[^1\omega_{1/r}]_{\times}\;^1R_g &
-        ^0R_r\;^rR_1[^1\omega_{1/r}]_{\times}\;^1\trans_g  + ^0R_r\;^rR_1\;^1\linvel_{1/r}\\ 0&0\end{array}\right)&
+  \left(\begin{array}{ll}^0R_b[^b\omega_{b/0}]_{\times}\;^bR_h & ^0R_b[^b\omega_{b/0}]_{\times}\;^b\trans_h + ^0R_b\;^b\linvel_{b/0} \\ 0&0\end{array}\right) =
+    \left(\begin{array}{ll}^0R_r[^r\omega_{r/0}]_{\times}\;^rR_{g'} & ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_{g'} + ^0R_r\;^r\linvel_{r/0} \\ 0&0\end{array}\right) \\
+      + \left(\begin{array}{ll}^0R_r\;^rR_a[^a\omega_{a/r}]_{\times}\;^aR_{g'} &
+        ^0R_r\;^rR_a[^a\omega_{a/r}]_{\times}\;^a\trans_{g'}  + ^0R_r\;^rR_a\;^a\linvel_{a/r}\\ 0&0\end{array}\right)&
 \end{align*}
 Extracting the upper blocks of this matrix equality, we get
 \begin{align*}
-  ^0R_2[^2\omega_{2/0}]_{\times}\;^2R_h &= ^0R_r[^r\omega_{r/0}]_{\times}\;^rR_g + ^0R_r\;^rR_1[^1\omega_{1/r}]_{\times}\;^1R_g \\
-  ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} &=
-  ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} + ^0R_r\;^rR_1[^1\omega_{1/r}]_{\times}\;^1\trans_g  + ^0R_r\;^rR_1\;^1\linvel_{1/r} \\
-  ^0R_2[^2\omega_{2/0}]_{\times}\;^2R_h &= ^0R_r[^r\omega_{r/0}]_{\times}\;^rR_g + ^0R_1[^1\omega_{1/r}]_{\times}\;^1R_g \\
-  ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} &=
-  ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} + ^0R_1[^1\omega_{1/r}]_{\times}\;^1\trans_g  + ^0R_1\;^1\linvel_{1/r} \\
-  [^0\omega_{2/0}]_{\times}\;^0R_h &= [^0\omega_{r/0}]_{\times}\;^0R_g + [^0\omega_{1/r}]_{\times}\;^0R_g \\
-  ^0R_2[^2\omega_{2/0}]_{\times}\;^2\trans_h + ^0R_2\;^2\linvel_{2/0} &=
-  ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_g + ^0R_r\;^r\linvel_{r/0} + ^0R_1[^1\omega_{1/r}]_{\times}\;^1\trans_g  + ^0R_1\;^1\linvel_{1/r} \\
+  ^0R_b[^b\omega_{b/0}]_{\times}\;^bR_h &= ^0R_r[^r\omega_{r/0}]_{\times}\;^rR_{g'} + ^0R_r\;^rR_a[^a\omega_{a/r}]_{\times}\;^aR_{g'} \\
+  ^0R_b[^b\omega_{b/0}]_{\times}\;^b\trans_h + ^0R_b\;^b\linvel_{b/0} &=
+  ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_{g'} + ^0R_r\;^r\linvel_{r/0} + ^0R_r\;^rR_a[^a\omega_{a/r}]_{\times}\;^a\trans_{g'}  + ^0R_r\;^rR_a\;^a\linvel_{a/r} \\
+  ^0R_b[^b\omega_{b/0}]_{\times}\;^bR_h &= ^0R_r[^r\omega_{r/0}]_{\times}\;^rR_{g'} + ^0R_a[^a\omega_{a/r}]_{\times}\;^aR_{g'} \\
+  ^0R_b[^b\omega_{b/0}]_{\times}\;^b\trans_h + ^0R_b\;^b\linvel_{b/0} &=
+  ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_{g'} + ^0R_r\;^r\linvel_{r/0} + ^0R_a[^a\omega_{a/r}]_{\times}\;^a\trans_{g'}  + ^0R_a\;^a\linvel_{a/r} \\
+  [^0\omega_{b/0}]_{\times}\;^0R_h &= [^0\omega_{r/0}]_{\times}\;^0R_{g'} + [^0\omega_{a/r}]_{\times}\;^0R_{g'} \\
+  ^0R_b[^b\omega_{b/0}]_{\times}\;^b\trans_h + ^0R_b\;^b\linvel_{b/0} &=
+  ^0R_r[^r\omega_{r/0}]_{\times}\;^r\trans_{g'} + ^0R_r\;^r\linvel_{r/0} + ^0R_a[^a\omega_{a/r}]_{\times}\;^a\trans_{g'}  + ^0R_a\;^a\linvel_{a/r} \\
 \end{align*}
-As $\;^0R_h = \;^0R_g$ all along the motion,
+As $\;^0R_h = \;^0R_{g'}$ all along the motion,
 \begin{align*}
-  ^0\omega_{2/0} &= \;^0\omega_{r/0} + \;^0\omega_{1/r}\\
-  -^0R_2[\;^2\trans_h]_{\times}\;^2\omega_{2/0} + ^0R_2\;^2\linvel_{2/0} &=
-  -^0R_r[\;^r\trans_g]_{\times}\;^r\omega_{r/0} + ^0R_r\;^r\linvel_{r/0} - ^0R_1[\;^1\trans_g]_{\times}\;^1\omega_{1/r} + \;^0R_1\;^1\linvel_{1/r} \\
-  ^0R_2\;^2\omega_{2/0} &= \;^0R_r\;^r\omega_{r/0} + \;^0R_r\;^r\omega_{1/r}\\
-  -^0R_2[\;^2\trans_h]_{\times}\;^2\omega_{2/0} + ^0R_2\;^2\linvel_{2/0} &=
-  -^0R_r[\;^r\trans_g]_{\times}\;^r\omega_{r/0} + ^0R_r\;^r\linvel_{r/0} - ^0R_1[\;^1\trans_g]_{\times} \;^1R_{r}\;^r\omega_{1/r} + \;^0R_1\;^1\linvel_{1/r}
+  ^0\omega_{b/0} &= \;^0\omega_{r/0} + \;^0\omega_{a/r}\\
+  -^0R_b[\;^b\trans_h]_{\times}\;^b\omega_{b/0} + ^0R_b\;^b\linvel_{b/0} &=
+  -^0R_r[\;^r\trans_{g'}]_{\times}\;^r\omega_{r/0} + ^0R_r\;^r\linvel_{r/0} - ^0R_a[\;^a\trans_{g'}]_{\times}\;^a\omega_{a/r} + \;^0R_a\;^a\linvel_{a/r} \\
+  ^0R_b\;^b\omega_{b/0} &= \;^0R_r\;^r\omega_{r/0} + \;^0R_r\;^r\omega_{a/r}\\
+  -^0R_b[\;^b\trans_h]_{\times}\;^b\omega_{b/0} + ^0R_b\;^b\linvel_{b/0} &=
+  -^0R_r[\;^r\trans_{g'}]_{\times}\;^r\omega_{r/0} + ^0R_r\;^r\linvel_{r/0} - ^0R_a[\;^a\trans_{g'}]_{\times} \;^aR_{r}\;^r\omega_{a/r} + \;^0R_a\;^a\linvel_{a/r}
 \end{align*}
 Using~(\ref{eq:jacobian arm}), we can write
 \begin{align*}
-  ^r\omega_{1/r} =& \;^rR_2\;^2\omega_{2/0} - \;^r\omega_{r/0}\\
-  -^0R_2[\;^2\trans_h]_{\times}\;^2\omega_{2/0} + \;^0R_2\;^2\linvel_{2/0} =&
-  -\;^0R_r[\;^r\trans_g]_{\times}\;^r\omega_{r/0} + \;^0R_r\;^r\linvel_{r/0} \\ &-\;^0R_1[\;^1\trans_g]_{\times} (\;^1R_2\;^2\omega_{2/0} - \;^1R_{r}\;^r\omega_{r/0}) + \;^0R_1\;^1\linvel_{1/r}
+  ^r\omega_{a/r} =& \;^rR_b\;^b\omega_{b/0} - \;^r\omega_{r/0}\\
+  -^0R_b[\;^b\trans_h]_{\times}\;^b\omega_{b/0} + \;^0R_b\;^b\linvel_{b/0} =&
+  -\;^0R_r[\;^r\trans_{g'}]_{\times}\;^r\omega_{r/0} + \;^0R_r\;^r\linvel_{r/0} \\ &-\;^0R_a[\;^a\trans_{g'}]_{\times} (\;^aR_b\;^b\omega_{b/0} - \;^aR_{r}\;^r\omega_{r/0}) + \;^0R_a\;^a\linvel_{a/r}
 \end{align*}
 \begin{align*}
-  ^1\linvel_{1/r} =& \;^1R_0\left(
-  -\;^0R_2[\;^2\trans_h]_{\times}\;^2\omega_{2/0} + \;^0R_2\;^2\linvel_{2/0}
-  +\;^0R_r[\;^r\trans_g]_{\times}\;^r\omega_{r/0} - \;^0R_r\;^r\linvel_{r/0} \right.\\
-  &\left.+\;^0R_1[\;^1\trans_g]_{\times} (\;^1R_2\;^2\omega_{2/0} - \;^1R_{r}\;^r\omega_{r/0})  \right)\\
-  ^r\omega_{1/r} =& \;^rR_2\;^2\omega_{2/0} - \;^r\omega_{r/0}
+  ^a\linvel_{a/r} =& \;^aR_0\left(
+  -\;^0R_b[\;^b\trans_h]_{\times}\;^b\omega_{b/0} + \;^0R_b\;^b\linvel_{b/0}
+  +\;^0R_r[\;^r\trans_{g'}]_{\times}\;^r\omega_{r/0} - \;^0R_r\;^r\linvel_{r/0} \right.\\
+  &\left.+\;^0R_a[\;^a\trans_{g'}]_{\times} (\;^aR_b\;^b\omega_{b/0} - \;^aR_{r}\;^r\omega_{r/0})  \right)\\
+  ^r\omega_{a/r} =& \;^rR_b\;^b\omega_{b/0} - \;^r\omega_{r/0}
 \end{align*}
 \begin{align}
-  ^1\linvel_{1/r} =&
-  -\;^1R_2[\;^2\trans_h]_{\times}\;^2\omega_{2/0} + \;^1R_2\;^2\linvel_{2/0}
-  +\;^1R_r[\;^r\trans_g]_{\times}\;^r\omega_{r/0} - \;^1R_r\;^r\linvel_{r/0}\\
+  ^a\linvel_{a/r} =&
+  -\;^aR_b[\;^b\trans_h]_{\times}\;^b\omega_{b/0} + \;^aR_b\;^b\linvel_{b/0}
+  +\;^aR_r[\;^r\trans_{g'}]_{\times}\;^r\omega_{r/0} - \;^aR_r\;^r\linvel_{r/0}\\
   \label{eq:jac31}
-  &+\;^0R_1[\;^1\trans_g]_{\times} (\;^1R_2\;^2\omega_{2/0} - \;^1R_{r}\;^r\omega_{r/0})\\
+  &+\;^0R_a[\;^a\trans_{g'}]_{\times} (\;^aR_b\;^b\omega_{b/0} - \;^aR_{r}\;^r\omega_{r/0})\\
   \label{eq:jac32}
-  ^r\omega_{1/r} =& \;^rR_2\;^2\omega_{2/0} - \;^r\omega_{r/0}
+  ^r\omega_{a/r} =& \;^rR_b\;^b\omega_{b/0} - \;^r\omega_{r/0}
 \end{align}
 We denote
 \begin{itemize}
-\item $J_{2\;in}$ the columns of the Jacobian of \texttt{joint2} corresponding to the input variables,
-\item $J_{2\;in}^{\linvel}$, $J_{2\;in}^{\omega}$, respectively the first 3 and last 3 lines of the latter,
+\item $J_{b\;in}$ the columns of the Jacobian of \texttt{joint2} corresponding to the input variables,
+\item $J_{b\;in}^{\linvel}$, $J_{b\;in}^{\omega}$, respectively the first 3 and last 3 lines of the latter,
 \item $J_{r\;in}$ the columns of the Jacobian of \texttt{root} corresponding to the input variables,
 \item $J_{r\;in}^{\linvel}$, $J_{r\;in}^{\omega}$, respectively the first 3 and last 3 lines of the latter,
 \end{itemize}
 With this notation, (\ref{eq:jac31}-\ref{eq:jac32}) become
 \begin{align*}
-  ^1\linvel_{1/r} =&
-  \left(-\;^1R_2[\;^2\trans_h]_{\times}J_{2\;in}^{\omega} + \;^1R_2J_{2\;in}^{\linvel}
-  +\;^1R_r[\;^r\trans_g]_{\times}J_{r\;in}^{\omega} - \;^1R_rJ_{r\;in}^{\linvel}\right.\\
-  &\left.+\;^0R_1[\;^1\trans_g]_{\times} (\;^1R_2J_{2\;in}^{\omega} - \;^1R_{r}J_{r\;in}^{\omega})\right)\dot{\conf}_{in}\\
-  ^r\omega_{1/r} =& \left(\;^rR_2J_{2\;in}^{\omega} - J_{r\;in}^{\omega}\right)\dot{\conf}_{in}
+  ^a\linvel_{a/r} =&
+  \left(-\;^aR_b[\;^b\trans_h]_{\times}J_{b\;in}^{\omega} + \;^aR_bJ_{b\;in}^{\linvel}
+  +\;^aR_r[\;^r\trans_{g'}]_{\times}J_{r\;in}^{\omega} - \;^aR_rJ_{r\;in}^{\linvel}\right.\\
+  &\left.+\;^0R_a[\;^a\trans_{g'}]_{\times} (\;^aR_bJ_{b\;in}^{\omega} - \;^aR_{r}J_{r\;in}^{\omega})\right)\dot{\conf}_{in}\\
+  ^r\omega_{a/r} =& \left(\;^rR_bJ_{b\;in}^{\omega} - J_{r\;in}^{\omega}\right)\dot{\conf}_{in}
 \end{align*}
 Let $J$ be the 6 matrix the first 3 lines of which are
 $$
-^1R_2(-[\;^2\trans_h]_{\times}J_{2\;in}^{\omega} + J_{2\;in}^{\linvel})
-+\;^1R_r([\;^r\trans_g]_{\times}J_{r\;in}^{\omega} - J_{r\;in}^{\linvel}) + \;^0R_1[\;^1\trans_g]_{\times} (\;^1R_2J_{2\;in}^{\omega} - \;^1R_{r}J_{r\;in}^{\omega})
+^aR_b(-[\;^b\trans_h]_{\times}J_{b\;in}^{\omega} + J_{b\;in}^{\linvel})
++\;^aR_r([\;^r\trans_{g'}]_{\times}J_{r\;in}^{\omega} - J_{r\;in}^{\linvel}) + \;^0R_a[\;^a\trans_{g'}]_{\times} (\;^aR_bJ_{b\;in}^{\omega} - \;^aR_{r}J_{r\;in}^{\omega})
 $$
 and the last 3 lines of which are
 $$
-^rR_2J_{2\;in}^{\omega} - J_{r\;in}^{\omega}
+^rR_bJ_{b\;in}^{\omega} - J_{r\;in}^{\omega}
 $$
 Using~(\ref{eq:jacobian arm}), we can write
 $$
